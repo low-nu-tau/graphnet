@@ -38,11 +38,12 @@ def main_pone(backend: str) -> None:
     # Check(s)
     assert backend in CONVERTER_CLASS
 
-    inputs = ["/home/victoria/work/pone/samples"]
+    inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone"
     print("outdir: ", outdir)
+    print('inputs: ', inputs)
     gcd_rescue = glob(
-        "/home/victoria/work/pone/samples/*GCD*"
+        f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/*GCD*"
     )
     if not gcd_rescue:
         print("No GeoCalib files found for p-one.")
@@ -51,7 +52,7 @@ def main_pone(backend: str) -> None:
     print("gcd type", type(gcd_rescue))
     converter = CONVERTER_CLASS[backend](
         extractors=[
-            I3FeatureExtractor(),
+            # I3FeatureExtractor(),
             I3GenericExtractor(),
 
         ],

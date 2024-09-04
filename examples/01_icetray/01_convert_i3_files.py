@@ -40,10 +40,11 @@ def main_icecube86(backend: str) -> None:
     # Check(s)
     assert backend in CONVERTER_CLASS
 
-    inputs = ["/home/victoria/work/pone/samples"]
-    outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone"
+    inputs = [f"{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02"]
+    outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/ic86"
+    print(f"gcd glob : {TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*")
     gcd_rescue = glob(
-        f"{inputs}/*GCD*"
+        "{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*"
     )
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
@@ -65,17 +66,12 @@ def main_icecube_upgrade(backend: str) -> None:
     """Convert IceCube-Upgrade I3 files to intermediate `backend` format."""
     # Check(s)
     assert backend in CONVERTER_CLASS
+
     inputs = [f"{TEST_DATA_DIR}/i3/upgrade_genie_step4_140028_000998"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/upgrade"
-    print("outdir", outdir)
     gcd_rescue = glob(
-        f"{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*"
-    )
-    if not gcd_rescue:
-        print("No GeoCalib files found for IceCube-86.")
-        return
-    gcd_rescue = gcd_rescue[0]
-    print("gcd type", type(gcd_rescue))
+        "{TEST_DATA_DIR}/i3/upgrade_genie_step4_140028_000998/*GeoCalib*"
+    )[0]
     workers = 1
 
     converter: DataConverter = CONVERTER_CLASS[backend](
