@@ -5,10 +5,8 @@ from glob import glob
 
 from graphnet.constants import EXAMPLE_OUTPUT_DIR, TEST_DATA_DIR
 from graphnet.data.extractors.icecube import (
-    I3FeatureExtractorIceCubeUpgrade,
-    I3FeatureExtractorIceCube86,
-    I3RetroExtractor,
-    I3TruthExtractor,
+    I3GenericExtractor,
+    I3FeatureExtractor
 )
 from graphnet.data.dataconverter import DataConverter
 from graphnet.data.parquet import ParquetDataConverter
@@ -35,22 +33,27 @@ CONVERTER_CLASS = {
 }
 
 
-def main_icecube86(backend: str) -> None:
-    """Convert IceCube-86 I3 files to intermediate `backend` format."""
+def main_pone(backend: str) -> None:
+    """Convert p-one I3 files to intermediate `backend` format."""
     # Check(s)
     assert backend in CONVERTER_CLASS
 
     inputs = ["/home/victoria/work/pone/samples"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone"
+    print("outdir: ", outdir)
     gcd_rescue = glob(
-        f"{inputs}/*GCD*"
+        "/home/victoria/work/pone/samples/*GCD*"
     )
+    if not gcd_rescue:
+        print("No GeoCalib files found for p-one.")
+        return
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
     converter = CONVERTER_CLASS[backend](
         extractors=[
-            I3FeatureExtractorIceCube86("SRTInIcePulses"),
-            I3TruthExtractor(),
+            I3FeatureExtractor(),
+            I3GenericExtractor(),
+
         ],
         outdir=outdir,
         gcd_rescue=gcd_rescue,
@@ -59,40 +62,6 @@ def main_icecube86(backend: str) -> None:
     converter(inputs)
     if backend == "sqlite":
         converter.merge_files()
-
-
-def main_icecube_upgrade(backend: str) -> None:
-    """Convert IceCube-Upgrade I3 files to intermediate `backend` format."""
-    # Check(s)
-    assert backend in CONVERTER_CLASS
-    inputs = [f"{TEST_DATA_DIR}/i3/upgrade_genie_step4_140028_000998"]
-    outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/upgrade"
-    print("outdir", outdir)
-    gcd_rescue = glob(
-        f"{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*"
-    )
-    if not gcd_rescue:
-        print("No GeoCalib files found for IceCube-86.")
-        return
-    gcd_rescue = gcd_rescue[0]
-    print("gcd type", type(gcd_rescue))
-    workers = 1
-
-    converter: DataConverter = CONVERTER_CLASS[backend](
-        extractors=[
-            I3TruthExtractor(),
-            I3RetroExtractor(),
-            I3FeatureExtractorIceCubeUpgrade("I3RecoPulseSeriesMap_mDOM"),
-            I3FeatureExtractorIceCubeUpgrade("I3RecoPulseSeriesMap_DEgg"),
-        ],
-        outdir=outdir,
-        workers=workers,
-        gcd_rescue=gcd_rescue,
-    )
-    converter(inputs)
-    if backend == "sqlite":
-        converter.merge_files()
-
 
 if __name__ == "__main__":
 
@@ -107,14 +76,10 @@ Convert I3 files to an intermediate format.
         )
 
         parser.add_argument("backend", choices=["sqlite", "parquet"])
-        parser.add_argument(
-            "detector", choices=["icecube-86", "icecube-upgrade"]
-        )
-
+        # parser.add_argument("outdir", default=f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone")
         args, unknown = parser.parse_known_args()
+        
 
         # Run example script
-        if args.detector == "icecube-86":
-            main_icecube86(args.backend)
-        else:
-            main_icecube_upgrade(args.backend)
+        main_pone(args.backend)
+
