@@ -5,8 +5,8 @@ from glob import glob
 
 from graphnet.constants import EXAMPLE_OUTPUT_DIR, TEST_DATA_DIR
 from graphnet.data.extractors.icecube import (
-    I3GenericExtractor,
-    I3FeatureExtractor
+    I3TruthExtractor,
+    I3FeatureExtractorIceCube86
 )
 from graphnet.data.dataconverter import DataConverter
 from graphnet.data.parquet import ParquetDataConverter
@@ -50,10 +50,11 @@ def main_pone(backend: str) -> None:
         return
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
+    pulsemap_name = "triggerpulsemap"
     converter = CONVERTER_CLASS[backend](
         extractors=[
-            # I3FeatureExtractor(),
-            I3GenericExtractor(),
+            I3FeatureExtractorIceCube86(pulsemap_name),
+            I3TruthExtractor(),
 
         ],
         outdir=outdir,
