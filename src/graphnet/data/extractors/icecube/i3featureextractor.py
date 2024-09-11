@@ -6,11 +6,12 @@ from graphnet.data.extractors.icecube.utilities.frames import (
     get_om_keys_and_pulseseries,
 )
 from graphnet.utilities.imports import has_icecube_package
+from graphnet.utilities.logging import Logger
 
 if has_icecube_package() or TYPE_CHECKING:
     from icecube import icetray  # pyright: reportMissingImports=false
 
-
+logger=Logger()
 class I3FeatureExtractor(I3Extractor):
     """Base class for extracting specific, reconstructed features."""
 

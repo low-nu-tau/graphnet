@@ -124,11 +124,11 @@ class I3TruthExtractor(I3Extractor):
         # Only InIceSplit P frames contain ML appropriate I3RecoPulseSeriesMap etc.
         # At low levels i3files contain several other P frame splits (e.g NullSplit),
         # we remove those here.
-        if frame["I3EventHeader"].sub_event_stream not in [
-            "InIceSplit",
-            "Final",
-        ]:
-            return output
+        # if frame["I3EventHeader"].sub_event_stream not in [
+        #     "InIceSplit",
+        #     "Final",
+        # ]:
+        #     return output
 
         if "FilterMask" in frame:
             if "DeepCoreFilter_13" in frame["FilterMask"]:

@@ -1,0 +1,41 @@
+arguments:
+  backbone:
+    ModelConfig:
+      arguments:
+        add_global_variables_after_pooling: true
+        dynedge_layer_sizes: [64, 128, 256]
+        features_subset: [sensor_pos_x, sensor_pos_y, sensor_pos_z, t, charge]
+        global_pooling_schemes: [min, max, mean, sum]
+        nb_inputs: 5
+        nb_neighbours: 16
+        post_processing_layer_sizes: [128, 64]
+        readout_layer_sizes: [256, 128, 64]
+      class_name: DynEdge
+  graph_definition:
+    ModelConfig:
+      arguments:
+        columns: [0, 1, 2, 3, 4]
+        detector:
+          ModelConfig:
+            arguments: {}
+            class_name: Prometheus
+        dtype: float32
+        nb_nearest_neighbours: 16
+        node_definition:
+          ModelConfig:
+            arguments: {}
+            class_name: NodesAsPulses
+        input_feature_names: [sensor_pos_x, sensor_pos_y, sensor_pos_z, t, charge]
+      class_name: KNNGraph
+  optimizer_class: '!class torch.optim.Adam'
+  optimizer_kwargs: {eps: 1e-08, lr: 0.001}
+  scheduler_class: '!class graphnet.training.callbacks PiecewiseLinearLR'
+  scheduler_config: {interval: step}
+  scheduler_kwargs:
+    factors: [0.01, 1, 0.01]
+    milestones: [0, 20, 80]
+  tasks:
+    - task_name: EnergyReconstruction
+      loss: MeanSquaredError
+      metrics: [MeanAbsoluteError, R2Score]
+      target: energy

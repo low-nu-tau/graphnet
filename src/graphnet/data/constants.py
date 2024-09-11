@@ -31,6 +31,7 @@ class FEATURES:
     ]
     KAGGLE = ["x", "y", "z", "time", "charge", "auxiliary"]
     LIQUIDO = ["sipm_x", "sipm_y", "sipm_z", "t"]
+    PONE = ["dom_x", "dom_y", "dom_z", "time", "charge"]
 
 
 class TRUTH:
@@ -92,4 +93,8 @@ class TRUTH:
         "interaction_time",
         "energy",
         "pid",
+    ]
+    PONE = ["zenith",
+            "azimuth",
+            "energy",
     ]

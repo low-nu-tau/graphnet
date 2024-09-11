@@ -3,6 +3,8 @@
 from typing import Any, Optional, Tuple
 
 from graphnet.utilities.imports import has_icecube_package
+from graphnet.utilities.logging import Logger
+logger = Logger()
 
 if has_icecube_package():
     from icecube import (
@@ -80,5 +82,4 @@ def get_om_keys_and_pulseseries(
                 frame, pulseseries
             )
             om_keys = data.keys()
-
     return om_keys, data

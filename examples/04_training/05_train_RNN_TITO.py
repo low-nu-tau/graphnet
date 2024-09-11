@@ -27,8 +27,8 @@ from graphnet.utilities.argparse import ArgumentParser
 from graphnet.utilities.logging import Logger
 
 # Constants
-features = FEATURES.PROMETHEUS
-truth = TRUTH.PROMETHEUS
+features = FEATURES.PONE
+truth = TRUTH.PONE
 
 
 def main(

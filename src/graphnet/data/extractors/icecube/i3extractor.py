@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from graphnet.utilities.imports import has_icecube_package
 from graphnet.data.extractors import Extractor
+from graphnet.utilities.logging import Logger
 
 if has_icecube_package() or TYPE_CHECKING:
     from icecube import icetray, dataio  # pyright: reportMissingImports=false
 
-
+logger=Logger()
 class I3Extractor(Extractor):
     """Base class for extracting information from physics I3-frames.
 
@@ -57,7 +58,6 @@ class I3Extractor(Extractor):
         else:
             # Ideally ends here
             gcd = dataio.I3File(gcd_file)
-
         # Get GFrame
         try:
             g_frame = gcd.pop_frame(icetray.I3Frame.Geometry)

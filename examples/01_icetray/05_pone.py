@@ -15,6 +15,9 @@ from graphnet.utilities.argparse import ArgumentParser
 from graphnet.utilities.imports import has_icecube_package
 from graphnet.utilities.logging import Logger
 
+from I3Tray import I3Tray  # pyright: reportMissingImports=false
+
+
 ERROR_MESSAGE_MISSING_ICETRAY = (
     "This example requires IceTray to be installed, which doesn't seem to be "
     "the case. Please install IceTray; run this example in the GraphNeT "
@@ -33,7 +36,7 @@ CONVERTER_CLASS = {
 }
 
 
-def main_pone(backend: str) -> None:
+def main_pone(backend: str, qtop: bool) -> None:
     """Convert p-one I3 files to intermediate `backend` format."""
     # Check(s)
     assert backend in CONVERTER_CLASS
@@ -50,7 +53,7 @@ def main_pone(backend: str) -> None:
         return
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
-    pulsemap_name = "triggerpulsemap"
+    pulsemap_name = "PMTResponse"
     converter = CONVERTER_CLASS[backend](
         extractors=[
             I3FeatureExtractorIceCube86(pulsemap_name),
@@ -61,9 +64,19 @@ def main_pone(backend: str) -> None:
         gcd_rescue=gcd_rescue,
         workers=1,
     )
-    converter(inputs)
-    if backend == "sqlite":
-        converter.merge_files()
+
+    if qtop:
+        tray = I3Tray()
+        tray.Add("I3Reader", "reader", FilenameList=[f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim.i3.zst"])
+        tray.Add("I3NullSplitter", 'splitme', SubEventStreamName="InIceSplit")
+        tray.Add("I3Writer", "writer", Filename=f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim_pframe.i3.zst")
+        tray.Execute()
+        tray.Finish()
+        print("QTOP done")
+    else:
+        converter(inputs)
+        if backend == "sqlite":
+            converter.merge_files()
 
 if __name__ == "__main__":
 
@@ -78,10 +91,12 @@ Convert I3 files to an intermediate format.
         )
 
         parser.add_argument("backend", choices=["sqlite", "parquet"])
+        # STEP 1 -- if you are using a file that is only Q frames
+        parser.add_argument("--qtop", action="store_true", help="Convert I3 inputs into new I3 files containing only P-frames.")
         # parser.add_argument("outdir", default=f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone")
         args, unknown = parser.parse_known_args()
         
 
         # Run example script
-        main_pone(args.backend)
+        main_pone(args.backend, args.qtop)
 
