@@ -13,7 +13,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from graphnet.constants import EXAMPLE_DATA_DIR, EXAMPLE_OUTPUT_DIR
 from graphnet.data.constants import FEATURES, TRUTH
 from graphnet.models import StandardModel
-from graphnet.models.detector.prometheus import Prometheus
+from graphnet.models.detector.pone import PONE
 from graphnet.models.gnn import RNN_TITO
 from graphnet.models.graphs import KNNGraph
 from graphnet.models.graphs.nodes import NodeAsDOMTimeSeries
@@ -27,8 +27,8 @@ from graphnet.utilities.argparse import ArgumentParser
 from graphnet.utilities.logging import Logger
 
 # Constants
-features = FEATURES.PROMETHEUS
-truth = TRUTH.PROMETHEUS
+features = FEATURES.PONE
+truth = TRUTH.PONE
 
 
 def main(
@@ -77,7 +77,7 @@ def main(
     }
 
     graph_definition = KNNGraph(
-        detector=Prometheus(),
+        detector=PONE(),
         node_definition=NodeAsDOMTimeSeries(
             keys=features,
             id_columns=features[0:3],
@@ -98,7 +98,7 @@ def main(
         db=config["path"],
         graph_definition=graph_definition,
         selection=None,
-        pulsemaps=config["pulsemap"],
+        pulsemaps=config["PMTReponse"],
         features=features,
         truth=truth,
         batch_size=config["batch_size"],

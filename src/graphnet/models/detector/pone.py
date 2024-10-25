@@ -7,8 +7,8 @@ import os
 from graphnet.models.detector.detector import Detector
 from graphnet.constants import PONE_GEOMETRY_TABLE_DIR
 
-class IceCubeUpgrade(Detector):
-    """`Detector` class for PONE."""
+class PONE(Detector):
+    """`Detector` class for IceCube-Upgrade."""
 
     geometry_table_path = os.path.join(
         PONE_GEOMETRY_TABLE_DIR, "pone.parquet"
@@ -25,13 +25,16 @@ class IceCubeUpgrade(Detector):
             "dom_z": self._dom_xyz,
             "dom_time": self._dom_time,
             "charge": self._charge,
-            "pmt_number": self._pmt_number,
+            # "rde": self._identity,
+            # "pmt_area": self._pmt_area,
+            "string": self._string,
+            # "pmt_number": self._pmt_number,
             "dom_number": self._dom_number,
-            "pmt_dir_x": self._identity,
-            "pmt_dir_y": self._identity,
-            "pmt_dir_z": self._identity,
+            # "pmt_dir_x": self._identity,
+            # "pmt_dir_y": self._identity,
+            # "pmt_dir_z": self._identity,
             "dom_type": self._dom_type,
-            "hlc": self._identity,
+            # "hlc": self._identity,
         }
 
         return feature_map
@@ -45,9 +48,6 @@ class IceCubeUpgrade(Detector):
     def _string(self, x: torch.tensor) -> torch.tensor:
         return (x - 50.0) / 50.0
 
-    def _pmt_number(self, x: torch.tensor) -> torch.tensor:
-        return x / 20.0
-
     def _dom_number(self, x: torch.tensor) -> torch.tensor:
         return (x - 60.0) / 60.0
 
@@ -56,6 +56,3 @@ class IceCubeUpgrade(Detector):
 
     def _dom_xyz(self, x: torch.tensor) -> torch.tensor:
         return x / 500.0
-
-    def _pmt_area(self, x: torch.tensor) -> torch.tensor:
-        return x / 0.05
