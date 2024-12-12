@@ -1,4 +1,4 @@
-# type: ignore[no-untyped-call]
+# mypy: disable-error-code="no-untyped-call"
 """Setup script for the GraphNeT package."""
 
 from setuptools import setup, find_packages
@@ -15,7 +15,7 @@ INSTALL_REQUIRES = [
     "configupdater",
     "dill>=0.3",
     "matplotlib>=3.5",
-    "numpy>=1.21",
+    "numpy>=1.22,<2.0",
     "pandas>=1.3",
     "pyarrow",
     "pydantic",
@@ -39,7 +39,7 @@ EXTRAS_REQUIRE = {
         "MarkupSafe<=2.1",
         "mypy",
         "myst-parser",
-        "pre-commit",
+        "pre-commit<4.0",
         "pydocstyle",
         "pylint",
         "pytest",

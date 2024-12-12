@@ -1,32 +1,32 @@
-"""Example of training RNN-TITO model.
-
-with time-series data.
-"""
+"""Example of training a conditional NormalizingFlow."""
 
 import os
 from typing import Any, Dict, List, Optional
 
 from pytorch_lightning.loggers import WandbLogger
 from torch.optim.adam import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from graphnet.constants import EXAMPLE_DATA_DIR, EXAMPLE_OUTPUT_DIR
 from graphnet.data.constants import FEATURES, TRUTH
-from graphnet.models import StandardModel
 from graphnet.models.detector.prometheus import Prometheus
-from graphnet.models.gnn import RNN_TITO
+from graphnet.models.gnn import DynEdge
 from graphnet.models.graphs import KNNGraph
-from graphnet.models.graphs.nodes import NodeAsDOMTimeSeries
-from graphnet.models.task.reconstruction import (
-    DirectionReconstructionWithKappa,
-)
-from graphnet.training.labels import Direction
-from graphnet.training.loss_functions import VonMisesFisher3DLoss
+from graphnet.training.callbacks import PiecewiseLinearLR
+from graphnet.training.utils import make_train_validation_dataloader
 from graphnet.utilities.argparse import ArgumentParser
 from graphnet.utilities.logging import Logger
-from graphnet.data import GraphNeTDataModule
-from graphnet.data.dataset import SQLiteDataset
-from graphnet.data.dataset import ParquetDataset
+from graphnet.utilities.imports import has_jammy_flows_package
+
+# Make sure the jammy flows is installed
+try:
+    assert has_jammy_flows_package()
+    from graphnet.models import NormalizingFlow
+except AssertionError:
+    raise AssertionError(
+        "This example requires the package`jammy_flow` "
+        " to be installed. It appears that the package is "
+        " not installed. Please install the package."
+    )
 
 # Constants
 features = FEATURES.PROMETHEUS
@@ -76,99 +76,60 @@ def main(
             "gpus": gpus,
             "max_epochs": max_epochs,
         },
-        "dataset_reference": (
-            SQLiteDataset if path.endswith(".db") else ParquetDataset
-        ),
     }
 
-    graph_definition = KNNGraph(
-        detector=Prometheus(),
-        node_definition=NodeAsDOMTimeSeries(
-            keys=features,
-            id_columns=features[0:3],
-            time_column=features[-1],
-            charge_column="None",
-        ),
-    )
-    archive = os.path.join(EXAMPLE_OUTPUT_DIR, "train_RNN_TITO_model")
-    run_name = "RNN_TITO_{}_example".format(config["target"])
+    archive = os.path.join(EXAMPLE_OUTPUT_DIR, "train_model_without_configs")
+    run_name = "dynedge_{}_example".format(config["target"])
     if wandb:
         # Log configuration to W&B
         wandb_logger.experiment.config.update(config)
 
-    # Use GraphNetDataModule to load in data
-    dm = GraphNeTDataModule(
-        dataset_reference=config["dataset_reference"],
-        dataset_args={
-            "truth": truth,
-            "truth_table": truth_table,
-            "features": features,
-            "graph_definition": graph_definition,
-            "pulsemaps": [config["pulsemap"]],
-            "path": config["path"],
-            "index_column": "event_no",
-            "labels": {
-                "direction": Direction(
-                    azimuth_key="injection_azimuth",
-                    zenith_key="injection_zenith",
-                )
-            },
-        },
-        train_dataloader_kwargs={
-            "batch_size": config["batch_size"],
-            "num_workers": config["num_workers"],
-        },
-        test_dataloader_kwargs={
-            "batch_size": config["batch_size"],
-            "num_workers": config["num_workers"],
-        },
-    )
+    # Define graph representation
+    graph_definition = KNNGraph(detector=Prometheus())
 
-    training_dataloader = dm.train_dataloader
-    validation_dataloader = dm.val_dataloader
+    (
+        training_dataloader,
+        validation_dataloader,
+    ) = make_train_validation_dataloader(
+        db=config["path"],
+        graph_definition=graph_definition,
+        pulsemaps=config["pulsemap"],
+        features=features,
+        truth=truth,
+        batch_size=config["batch_size"],
+        num_workers=config["num_workers"],
+        truth_table=truth_table,
+        selection=None,
+    )
 
     # Building model
-    backbone = RNN_TITO(
+
+    backbone = DynEdge(
         nb_inputs=graph_definition.nb_outputs,
-        nb_neighbours=8,
-        time_series_columns=[4, 3],
-        rnn_layers=2,
-        rnn_hidden_size=64,
-        rnn_dropout=0.5,
-        features_subset=[0, 1, 2, 3],
-        dyntrans_layer_sizes=[(256, 256), (256, 256), (256, 256), (256, 256)],
-        post_processing_layer_sizes=[336, 256],
-        readout_layer_sizes=[256, 128],
-        global_pooling_schemes=["max"],
-        embedding_dim=0,
-        n_head=16,
-        use_global_features=True,
-        use_post_processing_layers=True,
+        global_pooling_schemes=["min", "max", "mean", "sum"],
     )
 
-    task = DirectionReconstructionWithKappa(
-        hidden_size=backbone.nb_outputs,
-        target_labels=config["target"],
-        loss_function=VonMisesFisher3DLoss(),
-    )
-    model = StandardModel(
+    model = NormalizingFlow(
         graph_definition=graph_definition,
         backbone=backbone,
-        tasks=[task],
         optimizer_class=Adam,
+        target_labels=config["target"],
         optimizer_kwargs={"lr": 1e-03, "eps": 1e-03},
-        scheduler_class=ReduceLROnPlateau,
+        scheduler_class=PiecewiseLinearLR,
         scheduler_kwargs={
-            "patience": config["early_stopping_patience"],
+            "milestones": [
+                0,
+                len(training_dataloader) / 2,
+                len(training_dataloader) * config["fit"]["max_epochs"],
+            ],
+            "factors": [1e-2, 1, 1e-02],
         },
         scheduler_config={
-            "frequency": 1,
-            "monitor": "val_loss",
+            "interval": "step",
         },
     )
 
     # Training model
-
     model.fit(
         training_dataloader,
         validation_dataloader,
@@ -178,24 +139,12 @@ def main(
     )
 
     # Get predictions
-    additional_attributes = [
-        "injection_zenith",
-        "injection_azimuth",
-        "event_no",
-    ]
-    prediction_columns = [
-        config["target"][0] + "_x_pred",
-        config["target"][0] + "_y_pred",
-        config["target"][0] + "_z_pred",
-        config["target"][0] + "_kappa_pred",
-    ]
-
+    additional_attributes = model.target_labels
     assert isinstance(additional_attributes, list)  # mypy
 
     results = model.predict_as_dataframe(
         validation_dataloader,
-        additional_attributes=additional_attributes,
-        prediction_columns=prediction_columns,
+        additional_attributes=additional_attributes + ["event_no"],
         gpus=config["fit"]["gpus"],
     )
 
@@ -208,10 +157,13 @@ def main(
     # Save results as .csv
     results.to_csv(f"{path}/results.csv")
 
-    # Save full model (including weights) to .pth file - Not version proof
+    # Save full model (including weights) to .pth file - not version safe
+    # Note: Models saved as .pth files in one version of graphnet
+    #       may not be compatible with a different version of graphnet.
     model.save(f"{path}/model.pth")
 
     # Save model config and state dict - Version safe save method.
+    # This method of saving models is the safest way.
     model.save_state_dict(f"{path}/state_dict.pth")
     model.save_config(f"{path}/model_config.yml")
 
@@ -221,7 +173,7 @@ if __name__ == "__main__":
     # Parse command-line arguments
     parser = ArgumentParser(
         description="""
-Train GNN model without the use of config files.
+Train conditional NormalizingFlow without the use of config files.
 """
     )
 
@@ -243,7 +195,7 @@ Train GNN model without the use of config files.
             "Name of feature to use as regression target (default: "
             "%(default)s)"
         ),
-        default="direction",
+        default="total_energy",
     )
 
     parser.add_argument(
@@ -255,8 +207,8 @@ Train GNN model without the use of config files.
     parser.with_standard_arguments(
         "gpus",
         ("max-epochs", 1),
-        ("early-stopping-patience", 2),
-        ("batch-size", 16),
+        "early-stopping-patience",
+        ("batch-size", 50),
         "num-workers",
     )
 

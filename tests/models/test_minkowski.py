@@ -1,9 +1,9 @@
 """Unit tests for minkowski based edges."""
-import pytest
+
 import torch
 from torch_geometric.data.data import Data
 
-from graphnet.models.graphs.edges import KNNEdges, MinkowskiKNNEdges
+from graphnet.models.graphs.edges import MinkowskiKNNEdges
 from graphnet.models.graphs.edges.minkowski import (
     compute_minkowski_distance_mat,
 )

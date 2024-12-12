@@ -1,12 +1,13 @@
 """Standard model class(es)."""
 
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Dict, List, Optional, Union, Type
 import torch
 from torch import Tensor
 from torch_geometric.data import Data
 from torch.optim import Adam
 
 from graphnet.models.gnn.gnn import GNN
+from graphnet.models import Model
 from .easy_model import EasySyntax
 from graphnet.models.task import StandardLearnedTask
 from graphnet.models.graphs import GraphDefinition
@@ -25,7 +26,7 @@ class StandardModel(EasySyntax):
         self,
         graph_definition: GraphDefinition,
         tasks: Union[StandardLearnedTask, List[StandardLearnedTask]],
-        backbone: GNN = None,
+        backbone: Optional[Model] = None,
         gnn: Optional[GNN] = None,
         optimizer_class: Type[torch.optim.Optimizer] = Adam,
         optimizer_kwargs: Optional[Dict] = None,
@@ -60,7 +61,7 @@ class StandardModel(EasySyntax):
             )
 
         # Checks
-        assert isinstance(backbone, GNN)
+        assert isinstance(backbone, Model)
         assert isinstance(graph_definition, GraphDefinition)
 
         # Member variable(s)
