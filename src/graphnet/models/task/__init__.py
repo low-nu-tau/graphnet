@@ -6,3 +6,9 @@ from .task import (
     StandardLearnedTask,
     StandardFlowTask,
 )
+from .classification import (
+    MulticlassClassificationTask,
+    BinaryClassifier,
+    BinaryClassificationTask,
+    BinaryClassificationTaskLogits,
+)
