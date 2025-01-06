@@ -505,7 +505,7 @@ class I3TruthExtractor(I3Extractor):
         # @TODO: Rewrite to automatically infer `mc` from `input_file`?
         if not mc:
             sim_type = "data"
-        elif "muon" in input_file:
+        elif "muon" or "Muon" in input_file:
             sim_type = "muongun"
         elif "corsika" in input_file:
             sim_type = "corsika"
