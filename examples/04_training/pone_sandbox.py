@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim import Adam
 from utils import cluster_and_pad
-from graphnet.models.task import BinaryClassifier
+# from graphnet.models.task import BinaryClassifier
 from graphnet.models.rnn.node_rnn import Node_RNN
 from torch_geometric.data import Data
 

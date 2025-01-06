@@ -8,7 +8,7 @@ from .task import (
 )
 from .classification import (
     MulticlassClassificationTask,
-    BinaryClassifier,
+    # BinaryClassifier,
     BinaryClassificationTask,
     BinaryClassificationTaskLogits,
 )

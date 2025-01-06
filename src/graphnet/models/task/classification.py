@@ -15,25 +15,25 @@ class MulticlassClassificationTask(IdentityTask):
     """
 
 
-class BinaryClassifier(Tensor.Module):
-    def __init__(self, input_dim, hidden_layers, output_dim=1, activation="ReLU", loss_fn="BCEWithLogitsLoss"):
-        super(BinaryClassifier, self).__init__()
-        layers = []
-        in_dim = input_dim
-        for h_dim in hidden_layers:
-            layers.append(Tensor.Linear(in_dim, h_dim))
-            layers.append(getattr(Tensor, activation)())
-            in_dim = h_dim
-        layers.append(Tensor.Linear(in_dim, output_dim))
-        self.model = Tensor.Sequential(*layers)
-        self.loss_fn = getattr(Tensor, loss_fn)()
-        self.task = StandardLearnedTask(hidden_size=output_dim, target="target")
+# class BinaryClassifier(Tensor.Module):
+#     def __init__(self, input_dim, hidden_layers, output_dim=1, activation="ReLU", loss_fn="BCEWithLogitsLoss"):
+#         super(BinaryClassifier, self).__init__()
+#         layers = []
+#         in_dim = input_dim
+#         for h_dim in hidden_layers:
+#             layers.append(Tensor.Linear(in_dim, h_dim))
+#             layers.append(getattr(Tensor, activation)())
+#             in_dim = h_dim
+#         layers.append(Tensor.Linear(in_dim, output_dim))
+#         self.model = Tensor.Sequential(*layers)
+#         self.loss_fn = getattr(Tensor, loss_fn)()
+#         self.task = StandardLearnedTask(hidden_size=output_dim, target="target")
 
-    def forward(self, x):
-        return self.model(x)
+#     def forward(self, x):
+#         return self.model(x)
 
-    def compute_loss(self, pred, target):
-        return self.loss_fn(pred, target)
+#     def compute_loss(self, pred, target):
+#         return self.loss_fn(pred, target)
 
 class BinaryClassificationTask(StandardLearnedTask):
     """Performs binary classification."""
