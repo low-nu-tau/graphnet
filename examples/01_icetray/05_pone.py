@@ -41,7 +41,10 @@ def main_pone(backend: str, qtop: bool) -> None:
     # Check(s)
     assert backend in CONVERTER_CLASS
 
-    inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster"]
+    ## yes it is shitty i am in a rush - vp 01.06.25
+
+    # inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster"]
+    inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/k40"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone"
     print("outdir: ", outdir)
     print('inputs: ', inputs)
@@ -53,7 +56,7 @@ def main_pone(backend: str, qtop: bool) -> None:
         return
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
-    pulsemap_name = "PMTResponse"
+    pulsemap_name = "K40PulseMap"
     converter = CONVERTER_CLASS[backend](
         extractors=[
             I3FeatureExtractorIceCube86(pulsemap_name),
@@ -67,9 +70,12 @@ def main_pone(backend: str, qtop: bool) -> None:
 
     if qtop:
         tray = I3Tray()
-        tray.Add("I3Reader", "reader", FilenameList=[f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim.i3.zst"])
+        ## yes it is shitty i am in a rush - vp 01.06.25
+        # tray.Add("I3Reader", "reader", FilenameList=[f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim.i3.zst"])
+        tray.Add("I3Reader", "reader", FilenameList=[f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/k40/k40_1.i3.gz"])
         tray.Add("I3NullSplitter", 'splitme', SubEventStreamName="InIceSplit")
-        tray.Add("I3Writer", "writer", Filename=f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim_pframe.i3.zst")
+        # tray.Add("I3Writer", "writer", Filename=f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/GenerateSingleMuons_39_pmtsim_pframe.i3.zst")
+        tray.Add("I3Writer", "writer", Filename=f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/k40/k40_1_pframe.i3.zst")
         tray.Execute()
         tray.Finish()
         print("QTOP done")
