@@ -5,6 +5,8 @@ from graphnet.models.graphs.nodes import NodesAsPulses
 from graphnet.models.gnn.dynedge import DynEdge
 from graphnet.models.task.classification import MulticlassClassificationTask
 from graphnet.data.dataloader import DataLoader
+from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset
+from graphnet.data.dataloader import DataLoader
 
 # Choice of loss function and Model class
 from graphnet.training.loss_functions import MAELoss
@@ -39,6 +41,17 @@ model = StandardModel(
     tasks=[task],
 )
 
-train_dataloader = DataLoader("/mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*", batch_size=16, num_workers=4)
+dataset = ParquetDataset(
+    path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*",
+    pulsemaps="K40PulseMap",
+    truth_table="mc_truth",
+    features=["sensor_pos_x", "sensor_pos_y", "sensor_pos_z", "t"],
+    truth=["injection_energy", "injection_zenith"],
+    graph_definition = graph_definition,
+)
+
+train_dataloader = DataLoader(dataset, batch_size=128, num_workers=10,)
+
+# Train model
 model.fit(train_dataloader=train_dataloader, max_epochs=10)
 
