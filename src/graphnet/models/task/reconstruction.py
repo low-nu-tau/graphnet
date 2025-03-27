@@ -2,8 +2,7 @@
 
 import numpy as np
 import torch
-from torch import Tensor
-
+from torch import Tensor, nn
 from graphnet.models.task import StandardLearnedTask
 from graphnet.utilities.maths import eps_like
 
@@ -49,18 +48,23 @@ class AzimuthReconstruction(AzimuthReconstructionWithKappa):
 class DirectionReconstructionWithKappa(StandardLearnedTask):
     """Reconstructs direction with kappa from the 3D-vMF distribution."""
 
-    # Requires three features: untransformed points in (x,y,z)-space.
-    default_target_labels = ["direction"]  # contains dir_x, dir_y, dir_z
-    # see Direction label in /src/graphnet/training/labels.py
+    default_target_labels = ["direction"]
     default_prediction_labels = [
         "dir_x_pred",
         "dir_y_pred",
         "dir_z_pred",
         "direction_kappa",
     ]
-    nb_inputs = 3
+    nb_inputs = 3  # Match the output size of Full_RNN
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mapping_layer = nn.Linear(3, 64)  # Map 3 -> 64
 
     def _forward(self, x: Tensor) -> Tensor:
+        # Map the input to the expected size
+        x = self.mapping_layer(x)
+
         # Transform outputs to angle and prepare prediction
         kappa = torch.linalg.vector_norm(x, dim=1) + eps_like(x)
         vec_x = x[:, 0] / kappa

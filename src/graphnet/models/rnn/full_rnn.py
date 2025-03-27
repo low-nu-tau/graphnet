@@ -69,7 +69,28 @@ class Full_RNN(GNN):
         """
         # Extract time-series data from the input
         x = data.x  # Node features
+        batch = data.batch  # Batch indices
 
+        # Ensure x has the correct shape for the LSTM
+        if x.dim() == 2:  # If x is (batch_size * sequence_length, input_size)
+            # Determine sequence length
+            sequence_length = self._determine_sequence_length(batch)
+
+        if x.size(0) % sequence_length != 0:
+            # Calculate the padding size
+            pad_size = sequence_length - (x.size(0) % sequence_length)
+            print(f"Padding input from {x.size(0)} to {x.size(0) + pad_size} to match sequence_length.")
+
+            # Pad the input tensor `x`
+            x = torch.cat([x, torch.zeros(pad_size, x.size(1), device=x.device)], dim=0)
+
+            # Pad the `batch` tensor to maintain consistency
+            batch = torch.cat([batch, torch.full((pad_size,), -1, device=batch.device)], dim=0)
+
+        # Calculate the new batch size after padding
+        batch_size = x.size(0) // sequence_length
+        x = x.view(batch_size, sequence_length, x.size(-1))
+        
         # Apply RNN
         rnn_out, _ = self.rnn(x)  # rnn_out: (batch_size, sequence_length, hidden_size)
 
@@ -79,4 +100,17 @@ class Full_RNN(GNN):
         # Apply the fully connected layer to produce final predictions
         output = self.fc(last_hidden_state)  # (batch_size, output_size)
 
+        # Debugging shapes
+        print(f"x shape after reshape: {x.shape}")
+        print(f"rnn_out shape: {rnn_out.shape}")
+        print(f"last_hidden_state shape: {last_hidden_state.shape}")
+        print(f"output shape: {output.shape}")
+
         return output
+    
+    def _determine_sequence_length(self, batch: torch.Tensor) -> int:
+        """Determine the sequence length from the batch tensor."""
+        unique_batches = torch.unique(batch, sorted=True)
+        sequence_length = (batch == unique_batches[0]).sum().item()
+        print(f"Determined sequence_length: {sequence_length}")
+        return sequence_length

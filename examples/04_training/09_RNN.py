@@ -112,7 +112,7 @@ def main(
             },
         },
         train_dataloader_kwargs={
-            "batch_size": config["batch_size"],
+            "batch_size": config["batch_size"],  # Ensure batch_size is appropriate
             "num_workers": config["num_workers"],
         },
         test_dataloader_kwargs={
@@ -122,6 +122,12 @@ def main(
     )
 
     training_dataloader = dm.train_dataloader
+
+    for batch in training_dataloader:
+        print(f"Batch x shape: {batch.x.shape}")
+        print(f"Batch batch shape: {batch.batch.shape}")
+        break
+    
     validation_dataloader = dm.val_dataloader
 
     # Building model
@@ -134,7 +140,7 @@ def main(
         rnn_dropout=0.5,  # Dropout rate
         features_subset=[0, 1, 2, 3],  # Subset of features
         embedding_dim=0,  # Embedding dimension
-        output_size=3,  # Number of output features (e.g., 3D regression task)
+        output_size=64,  # Match the task's expected input size
     )
 
     task = DirectionReconstructionWithKappa(
