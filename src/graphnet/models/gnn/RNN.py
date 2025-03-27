@@ -1,11 +1,9 @@
 """RNN model implementation."""
-
+import torch
 from typing import List, Optional
 
-import torch
 from graphnet.models.gnn.gnn import GNN
-from graphnet.models.rnn.node_rnn import Node_RNN
-
+from graphnet.models.rnn.full_rnn import Full_RNN  # Import Full_RNN
 from graphnet.utilities.config import save_model_config
 from torch_geometric.data import Data
 
@@ -13,9 +11,9 @@ from torch_geometric.data import Data
 class RNN(GNN):
     """The RNN model class.
 
-    Combines the Node_RNN model, intended for data with large
-    amount of DOM activations per event. This model works only with non-
-    standard dataset specific to the Node_RNN model see Node_RNN for more
+    Combines the Full_RNN model, intended for data with large
+    amounts of DOM activations per event. This model works only with non-
+    standard datasets specific to the Full_RNN model. See Full_RNN for more
     details.
     """
 
@@ -31,6 +29,7 @@ class RNN(GNN):
         rnn_dropout: float = 0.5,
         features_subset: Optional[List[int]] = None,
         embedding_dim: Optional[int] = None,
+        output_size: int = 1,  # Add output_size for final predictions
     ):
         """Initialize the RNN model.
 
@@ -54,30 +53,25 @@ class RNN(GNN):
                 Defaults to None.
             embedding_dim (int, optional): Embedding dimension of the RNN.
                 Defaults to None.
+            output_size (int, optional): Number of output features for final
+                predictions. Defaults to 1.
         """
-        self._nb_neighbours = nb_neighbours
-        self._nb_inputs = nb_inputs
-        self._rnn_layers = rnn_layers
-        self._rnn_hidden_size = rnn_hidden_size
-        self._rnn_dropout = rnn_dropout
-        self._embedding_dim = embedding_dim
+        super().__init__(nb_inputs, rnn_hidden_size)
 
-        self._features_subset = features_subset
-
-        super().__init__(nb_inputs, self._rnn_hidden_size)
-
-        self._rnn = Node_RNN(
-            nb_inputs=2,
-            hidden_size=self._rnn_hidden_size,
-            num_layers=self._rnn_layers,
+        # Initialize Full_RNN as the backbone
+        self._rnn = Full_RNN(
+            nb_inputs=nb_inputs,
+            hidden_size=rnn_hidden_size,
+            num_layers=rnn_layers,
             time_series_columns=time_series_columns,
-            nb_neighbours=self._nb_neighbours,
-            features_subset=self._features_subset,
-            dropout=self._rnn_dropout,
-            embedding_dim=self._embedding_dim,
+            nb_neighbours=nb_neighbours,
+            features_subset=features_subset,
+            dropout=rnn_dropout,
+            embedding_dim=embedding_dim,
+            output_size=output_size,
         )
 
     def forward(self, data: Data) -> torch.Tensor:
         """Apply learnable forward pass of the RNN model."""
-        readout = self._rnn(data)
-        return readout
+        # Forward pass through Full_RNN
+        return self._rnn(data)  # Output tensor shape: [batch_size, output_size]

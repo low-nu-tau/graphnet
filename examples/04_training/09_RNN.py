@@ -11,7 +11,7 @@ from graphnet.constants import EXAMPLE_DATA_DIR, EXAMPLE_OUTPUT_DIR
 from graphnet.data.constants import FEATURES, TRUTH
 from graphnet.models import StandardModel
 from graphnet.models.detector.prometheus import Prometheus
-from graphnet.models.gnn import RNN
+from graphnet.models.gnn import RNN  # Import the updated RNN class
 from graphnet.models.graphs import KNNGraph
 from graphnet.models.graphs.nodes import NodeAsDOMTimeSeries
 from graphnet.models.task.reconstruction import (
@@ -126,15 +126,19 @@ def main(
 
     # Building model
     backbone = RNN(
-        nb_inputs=graph_definition.nb_outputs,
-        nb_neighbours=8,
-        rnn_layers=2,
-        rnn_hidden_size=64,
-        rnn_dropout=0.5,
+        nb_inputs=graph_definition.nb_outputs,  # Number of input features
+        time_series_columns=[4, 3],  # Indices for time-series data
+        nb_neighbours=8,  # Number of neighbors for graph construction
+        rnn_layers=2,  # Number of RNN layers
+        rnn_hidden_size=64,  # Hidden size of the RNN
+        rnn_dropout=0.5,  # Dropout rate
+        features_subset=[0, 1, 2, 3],  # Subset of features
+        embedding_dim=0,  # Embedding dimension
+        output_size=3,  # Number of output features (e.g., 3D regression task)
     )
 
     task = DirectionReconstructionWithKappa(
-        hidden_size=backbone.nb_outputs,
+        hidden_size=backbone._rnn._hidden_size,  # Access the hidden size from Full_RNN
         target_labels=config["target"],
         loss_function=VonMisesFisher3DLoss(),
     )
