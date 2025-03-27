@@ -58,11 +58,12 @@ class Full_RNN(GNN):
         # Fully connected output layer
         self.fc = nn.Linear(hidden_size, output_size)
 
-    def forward(self, data: Data) -> torch.Tensor:
+    def forward(self, data: Data, target: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Forward pass of the Full RNN model.
 
         Args:
             data: Input graph data.
+            target: Optional target tensor to be adjusted alongside the input.
 
         Returns:
             Output tensor of shape (batch_size, output_size).
@@ -76,21 +77,24 @@ class Full_RNN(GNN):
             # Determine sequence length
             sequence_length = self._determine_sequence_length(batch)
 
-        if x.size(0) % sequence_length != 0:
-            # Calculate the padding size
-            pad_size = sequence_length - (x.size(0) % sequence_length)
-            print(f"Padding input from {x.size(0)} to {x.size(0) + pad_size} to match sequence_length.")
+            # Validate that x.size(0) is divisible by sequence_length
+            if x.size(0) % sequence_length != 0:
+                # Calculate the padding size
+                pad_size = sequence_length - (x.size(0) % sequence_length)
+                print(f"Padding input from {x.size(0)} to {x.size(0) + pad_size} to match sequence_length.")
 
-            # Pad the input tensor `x`
-            x = torch.cat([x, torch.zeros(pad_size, x.size(1), device=x.device)], dim=0)
+                # Pad the input tensor `x`
+                x = torch.cat([x, torch.zeros(pad_size, x.size(1), device=x.device)], dim=0)
 
-            # Pad the `batch` tensor to maintain consistency
-            batch = torch.cat([batch, torch.full((pad_size,), -1, device=batch.device)], dim=0)
+                # Adjust the target tensor to match the padded size
+                if target is not None:
+                    if target.size(0) < x.size(0):
+                        target = torch.cat([target, torch.zeros(pad_size, *target.shape[1:], device=target.device)], dim=0)
 
-        # Calculate the new batch size after padding
-        batch_size = x.size(0) // sequence_length
-        x = x.view(batch_size, sequence_length, x.size(-1))
-        
+            # Calculate batch size after padding
+            batch_size = x.size(0) // sequence_length
+            x = x.view(batch_size, sequence_length, x.size(-1))  # (batch_size, sequence_length, input_size)
+
         # Apply RNN
         rnn_out, _ = self.rnn(x)  # rnn_out: (batch_size, sequence_length, hidden_size)
 
@@ -105,6 +109,8 @@ class Full_RNN(GNN):
         print(f"rnn_out shape: {rnn_out.shape}")
         print(f"last_hidden_state shape: {last_hidden_state.shape}")
         print(f"output shape: {output.shape}")
+        if target is not None:
+            print(f"Adjusted target shape: {target.shape}")
 
         return output
     
