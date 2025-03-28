@@ -124,6 +124,7 @@ def main(
     training_dataloader = dm.train_dataloader
 
     for batch in training_dataloader:
+        
         print(f"Batch x shape: {batch.x.shape}")
         print(f"Batch batch shape: {batch.batch.shape}")
         break
@@ -134,20 +135,20 @@ def main(
     backbone = RNN(
         nb_inputs=graph_definition.nb_outputs,  # Number of input features
         time_series_columns=[4, 3],  # Indices for time-series data
-        nb_neighbours=8,  # Number of neighbors for graph construction
         rnn_layers=2,  # Number of RNN layers
         rnn_hidden_size=64,  # Hidden size of the RNN
+        features_subset=[0, 1, 2, 3], # Latent features for k-NN clustering
         rnn_dropout=0.5,  # Dropout rate
-        features_subset=[0, 1, 2, 3],  # Subset of features
         embedding_dim=0,  # Embedding dimension
         output_size=64,  # Match the task's expected input size
     )
 
     task = DirectionReconstructionWithKappa(
-        hidden_size=backbone._rnn._hidden_size,  # Access the hidden size from Full_RNN
+        hidden_size=backbone._hidden_size,  # Access the hidden size from RNN
         target_labels=config["target"],
         loss_function=VonMisesFisher3DLoss(),
     )
+
     model = StandardModel(
         graph_definition=graph_definition,
         backbone=backbone,

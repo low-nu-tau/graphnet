@@ -1,14 +1,14 @@
 import torch
-import torch.nn as nn
+from torch_geometric.data import Data
+from torch_geometric.nn.pool import knn_graph
+from typing import List, Optional
 from graphnet.models.gnn.gnn import GNN
 from graphnet.utilities.config import save_model_config
-from torch_geometric.data import Data
-from typing import List, Optional
 from graphnet.models.components.embedding import SinusoidalPosEmb
 
 
 class Full_RNN(GNN):
-    """Full RNN model capable of producing final predictions."""
+    """Standalone RNN model for time-series data."""
 
     @save_model_config
     def __init__(
@@ -20,8 +20,8 @@ class Full_RNN(GNN):
         nb_neighbours: int = 8,
         features_subset: Optional[List[int]] = None,
         dropout: float = 0.5,
+        output_size: int = 1,
         embedding_dim: int = 0,
-        output_size: int = 1,  # Number of output features (e.g., regression or classification)
     ) -> None:
         """Construct `Full_RNN`.
 
@@ -29,94 +29,90 @@ class Full_RNN(GNN):
             nb_inputs: Number of features in the input data.
             hidden_size: Number of features for the RNN output and hidden layers.
             num_layers: Number of layers in the RNN.
-            time_series_columns: The indices of the input data that should be treated as time series data.
-            nb_neighbours: Number of neighbours to use when reconstructing the graph representation.
-            features_subset: The subset of latent features on each node that are used as metric dimensions.
-            dropout: Dropout fraction to use in the RNN.
-            embedding_dim: Dimension of the embedding.
-            output_size: Number of features in the final output.
+            time_series_columns: Indices of the input data treated as time-series data.
+            nb_neighbours: Number of neighbours for graph reconstruction. Defaults to 8.
+            features_subset: Subset of latent features used for k-NN clustering. Defaults to [0, 1, 2, 3].
+            dropout: Dropout fraction for the RNN. Defaults to 0.5.
+            output_size: Number of output features (e.g., regression targets or scores). Defaults to 1.
+            embedding_dim: Dimension of the positional embedding. Defaults to 0.
         """
-        super().__init__(nb_inputs, hidden_size + 5)
+        super().__init__(nb_inputs, hidden_size)
 
         self._hidden_size = hidden_size
         self._num_layers = num_layers
         self._time_series_columns = time_series_columns
         self._nb_neighbors = nb_neighbours
-        self._features_subset = features_subset
+        self._features_subset = features_subset or [0, 1, 2, 3]
         self._embedding_dim = embedding_dim
         self._nb_inputs = nb_inputs
+        self._output_size = output_size
 
         # RNN layer
-        self.rnn = nn.LSTM(
-            input_size=nb_inputs,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
+        self._rnn = torch.nn.GRU(
+            input_size=len(time_series_columns),
+            hidden_size=self._hidden_size,
+            num_layers=self._num_layers,
             batch_first=True,
             dropout=dropout,
         )
 
         # Fully connected output layer
-        self.fc = nn.Linear(hidden_size, output_size)
+        self._fc = torch.nn.Linear(self._hidden_size, self._output_size)
 
-    def forward(self, data: Data, target: Optional[torch.Tensor] = None) -> torch.Tensor:
+        # Optional sinusoidal positional embedding
+        self._emb = SinusoidalPosEmb(dim=self._embedding_dim) if self._embedding_dim > 0 else None
+   
+    def forward(self, data: Data) -> torch.Tensor:
         """Forward pass of the Full RNN model.
 
         Args:
             data: Input graph data.
-            target: Optional target tensor to be adjusted alongside the input.
 
         Returns:
             Output tensor of shape (batch_size, output_size).
         """
-        # Extract time-series data from the input
         x = data.x  # Node features
         batch = data.batch  # Batch indices
 
-        # Ensure x has the correct shape for the LSTM
-        if x.dim() == 2:  # If x is (batch_size * sequence_length, input_size)
-            # Determine sequence length
-            sequence_length = self._determine_sequence_length(batch)
+        # Extract time-series data
+        time_series = x[:, self._time_series_columns]
 
-            # Validate that x.size(0) is divisible by sequence_length
-            if x.size(0) % sequence_length != 0:
-                # Calculate the padding size
-                pad_size = sequence_length - (x.size(0) % sequence_length)
-                print(f"Padding input from {x.size(0)} to {x.size(0) + pad_size} to match sequence_length.")
+        # Apply positional embedding if specified
+        if self._embedding_dim > 0:
+            time_series = self._emb(time_series * 4096).reshape(
+                time_series.shape[0], -1
+            )
 
-                # Pad the input tensor `x`
-                x = torch.cat([x, torch.zeros(pad_size, x.size(1), device=x.device)], dim=0)
+        # Create the DOM + batch unique splitter from the new_node_col
+        splitter = torch.cat([torch.tensor([0]), x[:, -1].argwhere().flatten().cpu()])
+        print(f"Splitter values: {splitter}")
 
-                # Adjust the target tensor to match the padded size
-                if target is not None:
-                    if target.size(0) < x.size(0):
-                        target = torch.cat([target, torch.zeros(pad_size, *target.shape[1:], device=target.device)], dim=0)
+        # Split the time-series data
+        time_series = time_series.tensor_split(splitter)
+        print(f"Lengths of time_series splits before filtering: {[len(ts) for ts in time_series]}")
 
-            # Calculate batch size after padding
-            batch_size = x.size(0) // sequence_length
-            x = x.view(batch_size, sequence_length, x.size(-1))  # (batch_size, sequence_length, input_size)
+        # Filter out empty splits
+        time_series = [ts for ts in time_series if len(ts) > 0]
+        print(f"Lengths of time_series splits after filtering: {[len(ts) for ts in time_series]}")
 
-        # Apply RNN
-        rnn_out, _ = self.rnn(x)  # rnn_out: (batch_size, sequence_length, hidden_size)
+        # Apply RNN per DOM irrespective of batch and return the final state
+        time_series = torch.nn.utils.rnn.pack_sequence(
+            time_series, enforce_sorted=False
+        )
+        rnn_out = self._rnn(time_series)[-1][0]  # Extract the final hidden state
 
-        # Use the last hidden state for each sequence
-        last_hidden_state = rnn_out[:, -1, :]  # (batch_size, hidden_size)
+        # Correct the batch tensor
+        valid_indices = x[:, -1].bool()
+        print(f"Number of True values in x[:, -1]: {valid_indices.sum().item()}")
+        batch = batch[valid_indices]  # Update batch to match the processed nodes
 
-        # Apply the fully connected layer to produce final predictions
-        output = self.fc(last_hidden_state)  # (batch_size, output_size)
+        # Pass the RNN output through the fully connected layer to produce final predictions
+        output = self._fc(rnn_out)  # (batch_size, output_size)
 
         # Debugging shapes
-        print(f"x shape after reshape: {x.shape}")
-        print(f"rnn_out shape: {rnn_out.shape}")
-        print(f"last_hidden_state shape: {last_hidden_state.shape}")
-        print(f"output shape: {output.shape}")
-        if target is not None:
-            print(f"Adjusted target shape: {target.shape}")
+        print(f"Input time-series length: {x.shape[0]}")
+        print(f"RNN output shape: {rnn_out.shape}")
+        print(f"Corrected batch shape: {batch.shape}")
+        print(f"Final output shape: {output.shape}")
 
         return output
-    
-    def _determine_sequence_length(self, batch: torch.Tensor) -> int:
-        """Determine the sequence length from the batch tensor."""
-        unique_batches = torch.unique(batch, sorted=True)
-        sequence_length = (batch == unique_batches[0]).sum().item()
-        print(f"Determined sequence_length: {sequence_length}")
-        return sequence_length
