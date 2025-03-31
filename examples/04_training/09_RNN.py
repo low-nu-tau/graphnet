@@ -1,4 +1,4 @@
-"""Example of training RNN model with time-series data."""
+"""Example of training RNN-TITO model with time-series data."""
 
 import os
 from typing import Any, Dict, List, Optional
@@ -11,7 +11,7 @@ from graphnet.constants import EXAMPLE_DATA_DIR, EXAMPLE_OUTPUT_DIR
 from graphnet.data.constants import FEATURES, TRUTH
 from graphnet.models import StandardModel
 from graphnet.models.detector.prometheus import Prometheus
-from graphnet.models.gnn import RNN  # Import the updated RNN class
+from graphnet.models.gnn import RNN  # Import the modified RNN
 from graphnet.models.graphs import KNNGraph
 from graphnet.models.graphs.nodes import NodeAsDOMTimeSeries
 from graphnet.models.task.reconstruction import (
@@ -112,7 +112,7 @@ def main(
             },
         },
         train_dataloader_kwargs={
-            "batch_size": config["batch_size"],  # Ensure batch_size is appropriate
+            "batch_size": config["batch_size"],
             "num_workers": config["num_workers"],
         },
         test_dataloader_kwargs={
@@ -123,12 +123,6 @@ def main(
 
     training_dataloader = dm.train_dataloader
 
-    for batch in training_dataloader:
-        
-        print(f"Batch x shape: {batch.x.shape}")
-        print(f"Batch batch shape: {batch.batch.shape}")
-        break
-    
     validation_dataloader = dm.val_dataloader
 
     # Building model
@@ -137,14 +131,12 @@ def main(
         time_series_columns=[4, 3],  # Indices for time-series data
         rnn_layers=2,  # Number of RNN layers
         rnn_hidden_size=64,  # Hidden size of the RNN
-        features_subset=[0, 1, 2, 3], # Latent features for k-NN clustering
         rnn_dropout=0.5,  # Dropout rate
         embedding_dim=0,  # Embedding dimension
-        output_size=64,  # Match the task's expected input size
     )
 
     task = DirectionReconstructionWithKappa(
-        hidden_size=backbone._hidden_size,  # Access the hidden size from RNN
+        hidden_size=backbone._rnn_hidden_size,  # Access the hidden size from RNN
         target_labels=config["target"],
         loss_function=VonMisesFisher3DLoss(),
     )
@@ -219,7 +211,7 @@ if __name__ == "__main__":
     # Parse command-line arguments
     parser = ArgumentParser(
         description="""
-Train GNN model without the use of config files.
+Train RNN model without the use of config files.
 """
     )
 

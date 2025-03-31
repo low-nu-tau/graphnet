@@ -118,6 +118,9 @@ class Node_RNN(GNN):
             time_series, enforce_sorted=False
         )
         rnn_out = self._rnn(time_series)[-1][0]
+
+        print(f"[DEBUG] in beforeFULL RNN Input data.x shape: {data.x.shape}")
+        print(f"[DEBUG] in beforeFULL RNN Input data.edge_index shape: {data.edge_index.shape}")
         # prepare node level features
         charge = data.x[:, self._time_series_columns[0]].tensor_split(splitter)
         charge = torch.tensor(
@@ -135,11 +138,16 @@ class Node_RNN(GNN):
         # correct the batches
         data.batch = batch
         data = self.clean_up_data_object(data)
+        print(f"[DEBUG] in FULL RNN Input data.x shape: {data.x.shape}")
+        print(f"[DEBUG] in FULL RNN Input data.edge_index shape: {data.edge_index.shape}")
         # Recompute adjacency
         data.edge_index = knn_graph(
             x=x[:, self._features_subset],
             k=self._nb_neighbors,
             batch=batch,
         ).to(self.device)
+
+        
+
 
         return data
