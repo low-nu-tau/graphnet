@@ -1,97 +1,86 @@
-"""RNN_TITO model implementation."""
-
-from typing import List, Optional
-
 import torch
-from graphnet.models.gnn.gnn import GNN
-from graphnet.models.rnn.full_rnn import Full_RNN
-from graphnet.utilities.config import save_model_config
+from torch import nn
 from torch_geometric.data import Data
+from typing import List, Optional
+from graphnet.models.gnn.gnn import GNN
+from graphnet.utilities.config import save_model_config
 
 
-class RNN(GNN):
-    """The RNN_TITO model class.
-
-    Modified to only perform the RNN layer and return the RNN output.
-    """
+class String_RNN(GNN):
+    """RNN model for aggregated features of the string with the highest charge."""
 
     @save_model_config
     def __init__(
         self,
         nb_inputs: int,
+        hidden_size: int,
+        num_layers: int,
         time_series_columns: List[int],
-        *,
-        nb_neighbours: int = 8,
-        rnn_layers: int = 2,
-        rnn_hidden_size: int = 64,
-        rnn_dropout: float = 0.5,
-        features_subset: Optional[List[int]] = None,
-        embedding_dim: Optional[int] = None,
-    ):
-        """Initialize the RNN_TITO model.
+        dropout: float = 0.5,
+        embedding_dim: int = 0,
+    ) -> None:
+        """Initialize the String_RNN model.
 
         Args:
-            nb_inputs (int): Number of input features.
-            time_series_columns (List[int]): The indices of the input data that
-                should be treated as time series data.
-                The first index should be the charge column.
-            nb_neighbours (int, optional): Number of neighbours to consider.
-                Defaults to 8.
-            rnn_layers (int, optional): Number of RNN layers.
-                Defaults to 2.
-            rnn_hidden_size (int, optional): Size of the hidden state of the
-                RNN. Also determines the size of the output of the RNN.
-                Defaults to 64.
-            rnn_dropout (float, optional): Dropout to use in the RNN.
-                Defaults to 0.5.
-            features_subset (List[int], optional): The subset of latent
-                features on each node that are used as metric dimensions when
-                performing the k-nearest neighbours clustering.
-                Defaults to [0,1,2,3].
-            embedding_dim (int, optional): Embedding dimension of the RNN.
-                Defaults to None (no embedding).
+            nb_inputs: Number of input features.
+            hidden_size: Number of features for the RNN output and hidden layers.
+            num_layers: Number of layers in the RNN.
+            time_series_columns: Indices of the input data treated as time series.
+            dropout: Dropout fraction to use in the RNN. Defaults to 0.5.
+            embedding_dim: Embedding dimension of the RNN. Defaults to 0.
         """
-        self._nb_neighbours = nb_neighbours
-        self._nb_inputs = nb_inputs
-        self._rnn_layers = rnn_layers
-        self._rnn_hidden_size = rnn_hidden_size
-        self._rnn_dropout = rnn_dropout
+        self._hidden_size = hidden_size
+        self._num_layers = num_layers
+        self._time_series_columns = time_series_columns
         self._embedding_dim = embedding_dim
+        self._nb_inputs = nb_inputs
 
-        self._features_subset = features_subset
+        super().__init__(nb_inputs, hidden_size)
 
-        super().__init__(nb_inputs, self._rnn_hidden_size)
+        if self._embedding_dim != 0:
+            self._nb_inputs = self._embedding_dim * nb_inputs
 
-        # Initialize the RNN layer
-        self._rnn = Full_RNN(
-            nb_inputs=2,
-            hidden_size=self._rnn_hidden_size,
-            num_layers=self._rnn_layers,
-            time_series_columns=time_series_columns,
-            nb_neighbours=self._nb_neighbours,
-            features_subset=self._features_subset,
-            dropout=self._rnn_dropout,
-            embedding_dim=self._embedding_dim,
+        self._rnn = nn.GRU(
+            input_size=self._nb_inputs,
+            hidden_size=self._hidden_size,
+            num_layers=self._num_layers,
+            batch_first=True,
+            dropout=dropout,
         )
 
     def forward(self, data: Data) -> torch.Tensor:
-        """Apply learnable forward pass of the RNN model.
+        """Forward pass for the String_RNN model.
 
         Args:
-            data: Input graph data.
+            data: Input data object.
 
         Returns:
-            RNN output tensor.
+            torch.Tensor: Final string score.
         """
-        # Debug input data
-        # print(f"[DEBUG] In RNN Input data.x shape: {data.x.shape}")
-        # print(f"[DEBUG] In RNN Input data.edge_index shape: {data.edge_index.shape}")
+        x = data.x
+        batch = data.batch
 
-        # Pass the data through the RNN layer
-        rnn_out = self._rnn(data)
+        # Aggregate features for the string with the highest charge
+        string_ids = data.string_ids
+        charges = x[:, self._time_series_columns[0]]
+        string_charges = torch.zeros_like(charges).scatter_add_(
+            0, string_ids, charges
+        )
+        max_string_id = string_charges.argmax()
 
-        # Debug output data
-        # print(f"[DEBUG] RNN output shape: {rnn_out.shape}")
+        # Select features for the string with the highest charge
+        string_mask = string_ids == max_string_id
+        string_features = x[string_mask]
 
-        # Return the RNN output
-        return rnn_out
+        # Optional embedding
+        if self._embedding_dim != 0:
+            string_features = string_features * 4096
+            string_features = string_features.view(
+                string_features.size(0), -1, self._embedding_dim
+            )
+
+        # Apply RNN
+        rnn_out, _ = self._rnn(string_features.unsqueeze(0))
+        string_score = rnn_out[:, -1, :]  # Take the last hidden state
+
+        return string_score

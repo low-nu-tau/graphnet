@@ -1,4 +1,4 @@
-"""Example of training RNN-TITO model with time-series data."""
+"""Example of training String_RNN model with Binary Classification Task."""
 
 import os
 from typing import Any, Dict, List, Optional
@@ -10,20 +10,15 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from graphnet.constants import EXAMPLE_DATA_DIR, EXAMPLE_OUTPUT_DIR
 from graphnet.data.constants import FEATURES, TRUTH
 from graphnet.models import StandardModel
-from graphnet.models.detector.prometheus import Prometheus
-from graphnet.models.gnn import RNN  # Import the modified RNN
+from graphnet.models.gnn import String_RNN
 from graphnet.models.graphs import KNNGraph
 from graphnet.models.graphs.nodes import NodeAsDOMTimeSeries
-from graphnet.models.task.reconstruction import (
-    DirectionReconstructionWithKappa,
-)
-from graphnet.training.labels import Direction
-from graphnet.training.loss_functions import VonMisesFisher3DLoss
+from graphnet.models.task.classification import BinaryClassificationTask
+from graphnet.training.loss_functions import BinaryCrossEntropyLoss
 from graphnet.utilities.argparse import ArgumentParser
 from graphnet.utilities.logging import Logger
 from graphnet.data import GraphNeTDataModule
-from graphnet.data.dataset import SQLiteDataset
-from graphnet.data.dataset import ParquetDataset
+from graphnet.data.dataset import SQLiteDataset, ParquetDataset
 
 # Constants
 features = FEATURES.PROMETHEUS
@@ -42,7 +37,7 @@ def main(
     num_workers: int,
     wandb: bool = False,
 ) -> None:
-    """Run example."""
+    """Train the String_RNN model with Binary Classification Task."""
     # Construct Logger
     logger = Logger()
 
@@ -52,11 +47,13 @@ def main(
         wandb_dir = "./wandb/"
         os.makedirs(wandb_dir, exist_ok=True)
         wandb_logger = WandbLogger(
-            project="example-script",
+            project="string_rnn_training",
             entity="graphnet-team",
             save_dir=wandb_dir,
             log_model=True,
         )
+    else:
+        wandb_logger = None
 
     logger.info(f"features: {features}")
     logger.info(f"truth: {truth}")
@@ -78,23 +75,14 @@ def main(
         ),
     }
 
+    # Define the graph structure
     graph_definition = KNNGraph(
-        detector=Prometheus(),
-        node_definition=NodeAsDOMTimeSeries(
-            keys=features,
-            id_columns=features[0:3],
-            time_column=features[-1],
-            charge_column="None",
-        ),
+        nb_nearest_neighbours=8,
+        node_definition=NodeAsDOMTimeSeries(),
     )
-    archive = os.path.join(EXAMPLE_OUTPUT_DIR, "train_RNN_model")
-    run_name = "RNN_{}_example".format(config["target"])
-    if wandb:
-        # Log configuration to W&B
-        wandb_logger.experiment.config.update(config)
 
     # Use GraphNetDataModule to load in data
-    dm = GraphNeTDataModule(
+    datamodule = GraphNeTDataModule(
         dataset_reference=config["dataset_reference"],
         dataset_args={
             "truth": truth,
@@ -105,10 +93,7 @@ def main(
             "path": config["path"],
             "index_column": "event_no",
             "labels": {
-                "direction": Direction(
-                    azimuth_key="injection_azimuth",
-                    zenith_key="injection_zenith",
-                )
+                "binary_target": target,
             },
         },
         train_dataloader_kwargs={
@@ -121,26 +106,25 @@ def main(
         },
     )
 
-    training_dataloader = dm.train_dataloader
-
-    validation_dataloader = dm.val_dataloader
-
-    # Building model
-    backbone = RNN(
-        nb_inputs=graph_definition.nb_outputs,  # Number of input features
-        time_series_columns=[4, 3],  # Indices for time-series data
-        rnn_layers=2,  # Number of RNN layers
-        rnn_hidden_size=64,  # Hidden size of the RNN
-        rnn_dropout=0.5,  # Dropout rate
-        embedding_dim=0,  # Embedding dimension
+    # Initialize the String_RNN model
+    backbone = String_RNN(
+        nb_inputs=len(features),
+        hidden_size=64,
+        num_layers=2,
+        time_series_columns=[0, 1],  # Example: charge and time columns
+        dropout=0.5,
+        embedding_dim=16,
     )
 
-    task = DirectionReconstructionWithKappa(
-        hidden_size=backbone._rnn_hidden_size,  # Access the hidden size from RNN
+    # Add Binary Classification Task
+    task = BinaryClassificationTask(
+        hidden_size=backbone.nb_outputs,
         target_labels=config["target"],
-        loss_function=VonMisesFisher3DLoss(),
+        prediction_labels="binary_prediction",
+        loss_function=BinaryCrossEntropyLoss(),
     )
 
+    # Combine GNN and Task into a StandardModel
     model = StandardModel(
         graph_definition=graph_definition,
         backbone=backbone,
@@ -158,10 +142,9 @@ def main(
     )
 
     # Training model
-
     model.fit(
-        training_dataloader,
-        validation_dataloader,
+        datamodule.train_dataloader,
+        datamodule.val_dataloader,
         early_stopping_patience=config["early_stopping_patience"],
         logger=wandb_logger if wandb else None,
         **config["fit"],
@@ -169,41 +152,36 @@ def main(
 
     # Get predictions
     additional_attributes = [
-        "injection_zenith",
-        "injection_azimuth",
         "event_no",
     ]
     prediction_columns = [
-        config["target"][0] + "_x_pred",
-        config["target"][0] + "_y_pred",
-        config["target"][0] + "_z_pred",
-        config["target"][0] + "_kappa_pred",
+        "binary_prediction",
     ]
 
-    assert isinstance(additional_attributes, list)  # mypy
-
     results = model.predict_as_dataframe(
-        validation_dataloader,
+        datamodule.val_dataloader,
         additional_attributes=additional_attributes,
         prediction_columns=prediction_columns,
         gpus=config["fit"]["gpus"],
     )
 
     # Save predictions and model to file
+    archive = os.path.join(EXAMPLE_OUTPUT_DIR, "train_String_RNN_model")
+    run_name = "String_RNN_{}_example".format(config["target"])
     db_name = path.split("/")[-1].split(".")[0]
-    path = os.path.join(archive, db_name, run_name)
-    logger.info(f"Writing results to {path}")
-    os.makedirs(path, exist_ok=True)
+    save_path = os.path.join(archive, db_name, run_name)
+    logger.info(f"Writing results to {save_path}")
+    os.makedirs(save_path, exist_ok=True)
 
     # Save results as .csv
-    results.to_csv(f"{path}/results.csv")
+    results.to_csv(f"{save_path}/results.csv")
 
     # Save full model (including weights) to .pth file - Not version proof
-    model.save(f"{path}/model.pth")
+    model.save(f"{save_path}/model.pth")
 
-    # Save model config and state dict - Version safe save method.
-    model.save_state_dict(f"{path}/state_dict.pth")
-    model.save_config(f"{path}/model_config.yml")
+    # Save model config and state dict - Version safe save method
+    model.save_state_dict(f"{save_path}/state_dict.pth")
+    model.save_config(f"{save_path}/model_config.yml")
 
 
 if __name__ == "__main__":
@@ -211,7 +189,7 @@ if __name__ == "__main__":
     # Parse command-line arguments
     parser = ArgumentParser(
         description="""
-Train RNN model without the use of config files.
+Train String_RNN model with Binary Classification Task using StandardModel.
 """
     )
 
@@ -233,7 +211,7 @@ Train RNN model without the use of config files.
             "Name of feature to use as regression target (default: "
             "%(default)s)"
         ),
-        default="direction",
+        default="binary_target",
     )
 
     parser.add_argument(
