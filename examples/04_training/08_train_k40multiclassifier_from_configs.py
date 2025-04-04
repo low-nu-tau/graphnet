@@ -78,11 +78,7 @@ def main(
     datasets: Dict[str, Any] = Dataset.from_config(
         dataset_config,
     )
-    print("DATASET_config", dataset_config)
 
-    ##############################################################################
-    # KEEP EDITING HERE
-    ##############################################################################
     # Construct datasets from multiple selections
     train_dataset = EnsembleDataset(
         [datasets[key] for key in datasets if key.startswith("train")]
@@ -160,7 +156,7 @@ if __name__ == "__main__":
             "dataset-config",
             os.path.join(
                 DATASETS_CONFIG_DIR,
-                "training_classification_k40_data_parquet.yml",
+                "training_classification_k40_data_parquet.yml" # this was: "training_classification_example_data_sqlite.yml",
             ),
         ),
         (
