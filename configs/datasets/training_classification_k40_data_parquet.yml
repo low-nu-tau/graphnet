@@ -14,7 +14,7 @@ graph_definition:
     input_feature_names: [dom_x, dom_y, dom_z, time, charge] # copied the features from below
   class_name: KNNGraph
 pulsemaps:
-  - total
+  - K40PulseMap
 features:  # got features from here: /mnt/home/robsonj3/graphnet/src/graphnet/data/constants.py
   - dom_x
   - dom_y
@@ -25,11 +25,13 @@ truth:  # got truth from here: /mnt/home/robsonj3/graphnet/src/graphnet/data/con
   - zenith
   - azimuth
   - energy
-  - dummy_pid
 index_column: event_no
 truth_table: mc_truth
 seed: 21
 selection:  # selection format is incorrect for parquet??
-  test: event_no % 5 == 0
-  validation: event_no % 5 == 1
-  train: event_no % 5 > 1
+  test: null
+  validation: null
+  train: null
+#  test: event_no % 5 == 0
+#  validation: event_no % 5 == 1
+#  train: event_no % 5 > 1

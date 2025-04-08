@@ -160,6 +160,7 @@ class ParquetDataset(Dataset):
         selection: Optional[Union[str, List[int], List[List[int]]]] = None,
     ) -> None:
         if selection is not None:
+            print("SELECTION: ", selection)
             try:
                 assert not isinstance(selection, str)
             except AssertionError:
@@ -191,6 +192,7 @@ class ParquetDataset(Dataset):
 
     def _get_all_indices(self) -> List[int]:
         """Return a list of all unique values in `self._index_column`."""
+        print("getting indicies in: ", os.path.join(self._path, self._truth_table, "*.parquet"))
         files = glob(os.path.join(self._path, self._truth_table, "*.parquet"))
         return np.arange(0, len(files), 1)
 
@@ -203,6 +205,7 @@ class ParquetDataset(Dataset):
                 self._truth_table,
                 f"{self.truth_table}_{chunk_id}.parquet",
             )
+            print("Loading Path: ", path)
             sizes.append(len(pol.read_parquet(path)))
         return sizes
 
