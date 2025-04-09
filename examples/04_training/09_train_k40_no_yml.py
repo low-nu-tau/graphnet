@@ -42,7 +42,7 @@ model = StandardModel(
 )
 
 train_dataset = ParquetDataset(
-    path="/mnt/home/robsonj3/merged_parquet_test",
+    path="/mnt/home/robsonj3/k40_merged_parquet_train",
     pulsemaps="K40PulseMap",
     truth_table="mc_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
@@ -50,19 +50,20 @@ train_dataset = ParquetDataset(
     graph_definition = graph_definition,
 )
 
-""" valid_dataset = ParquetDataset(
-    path="/mnt/home/robsonj3/merged_parquet_test",
+valid_dataset = ParquetDataset(
+    path="/mnt/home/robsonj3/merged_parquet_validate",
     pulsemaps="K40PulseMap",
     truth_table="mc_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
     truth=[],
     graph_definition = graph_definition,
-) """
+)
 
 train_dataloader = DataLoader(train_dataset, batch_size=128, num_workers=10)
+validate_dataloader = DataLoader(valid_dataset, batch_size=128, num_workers=10)
 
 # Train model
-model.fit(train_dataloader=train_dataloader, max_epochs=1) # max_epochs was 10
+model.fit(train_dataloader=train_dataloader, max_epochs=10)
 
 """ results = model.predict_as_dataframe(
     test_dataloader=test_dataloader,
