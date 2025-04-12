@@ -1,5 +1,5 @@
 # should all the files be merged into one? That is how it looks for examples
-path:  /mnt/home/robsonj3/merged_k40.parquet # /mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*.parquet #was this: $GRAPHNET/data/examples/sqlite/prometheus/prometheus-events.db
+path:  /mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_train # /mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*.parquet #was this: $GRAPHNET/data/examples/sqlite/prometheus/prometheus-events.db
 graph_definition:
   arguments:
     columns: [0, 1, 2]
@@ -11,7 +11,7 @@ graph_definition:
     node_definition:
       arguments: {}
       class_name: NodesAsPulses
-    input_feature_names: [dom_x, dom_y, dom_z, time, charge] # copied the features from below
+    input_feature_names: [dom_x, dom_y, dom_z, dom_time, charge] # copied the features from below
   class_name: KNNGraph
 pulsemaps:
   - K40PulseMap
@@ -29,9 +29,6 @@ index_column: event_no
 truth_table: mc_truth
 seed: 21
 selection:  # selection format is incorrect for parquet??
-  test: null
-  validation: null
-  train: null
-#  test: event_no % 5 == 0
-#  validation: event_no % 5 == 1
-#  train: event_no % 5 > 1
+  test: event_no % 5 == 0
+  validation: event_no % 5 == 1
+  train: event_no % 5 > 1

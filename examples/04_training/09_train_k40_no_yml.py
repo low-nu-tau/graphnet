@@ -42,7 +42,7 @@ model = StandardModel(
 )
 
 train_dataset = ParquetDataset(
-    path="/mnt/home/robsonj3/k40_merged_parquet_train",
+    path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_train",
     pulsemaps="K40PulseMap",
     truth_table="mc_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
@@ -51,7 +51,7 @@ train_dataset = ParquetDataset(
 )
 
 valid_dataset = ParquetDataset(
-    path="/mnt/home/robsonj3/merged_parquet_validate",
+    path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_validate",
     pulsemaps="K40PulseMap",
     truth_table="mc_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
