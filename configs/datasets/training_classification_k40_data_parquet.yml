@@ -1,8 +1,9 @@
 # should all the files be merged into one? That is how it looks for examples
-path:  /mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_train # /mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*.parquet #was this: $GRAPHNET/data/examples/sqlite/prometheus/prometheus-events.db
+path:  /mnt/gs21/scratch/robsonj3/k40sim/parquet/merged_file # /mnt/gs21/scratch/robsonj3/k40sim/parquet/K40PulseMap/*.parquet #was this: $GRAPHNET/data/examples/sqlite/prometheus/prometheus-events.db
 graph_definition:
   arguments:
-    columns: [0, 1, 2]
+    columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19] # there are 20 columns in parquet file
+    # above was only [0, 1, 2]
     detector:
       arguments: {}
       class_name: PONE # was this: Prometheus
@@ -19,7 +20,7 @@ features:  # got features from here: /mnt/home/robsonj3/graphnet/src/graphnet/da
   - dom_x
   - dom_y
   - dom_z
-  - time
+  - dom_time
   - charge
 truth:  # got truth from here: /mnt/home/robsonj3/graphnet/src/graphnet/data/constants.py
   - zenith
