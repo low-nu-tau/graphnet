@@ -1,5 +1,5 @@
 # Choice of graph representation, architecture, and physics task
-from graphnet.models.detector.prometheus import PONETriangle
+from graphnet.models.detector.pone import PONE
 from graphnet.models.graphs import KNNGraph
 from graphnet.models.graphs.nodes import NodesAsPulses
 from graphnet.models.gnn.dynedge import DynEdge
@@ -19,7 +19,7 @@ from graphnet.models import StandardModel
 # edges drawn to the 8 nearest neighbours
 
 graph_definition = KNNGraph(
-    detector=PONETriangle(),
+    detector=PONE(),
     node_definition=NodesAsPulses(),
     nb_nearest_neighbours=8,
 )
@@ -42,20 +42,20 @@ model = StandardModel(
 )
 
 train_dataset = ParquetDataset(
-    path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_train",
+    path="/mnt/home/robsonj3/graphnet/data/tests/parquet/jacob_test_train",
     pulsemaps="K40PulseMap",
-    truth_table="mc_truth",
+    truth_table="truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=[],
+    truth=["zenith", "azimuth", "energy"],
     graph_definition = graph_definition,
 )
 
 valid_dataset = ParquetDataset(
     path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_validate",
     pulsemaps="K40PulseMap",
-    truth_table="mc_truth",
+    truth_table="truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=[],
+    truth=["zenith", "azimuth", "energy"],
     graph_definition = graph_definition,
 )
 
@@ -65,6 +65,7 @@ validate_dataloader = DataLoader(valid_dataset, batch_size=128, num_workers=10)
 # Train model
 model.fit(train_dataloader=train_dataloader, max_epochs=10)
 
+print("TRAIN MODEL HAS FINISHED")
 """ results = model.predict_as_dataframe(
     test_dataloader=test_dataloader,
     additional_attributes=model.target_labels + ["event_no"],
