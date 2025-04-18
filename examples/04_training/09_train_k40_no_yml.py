@@ -11,6 +11,7 @@ from graphnet.data.dataloader import DataLoader
 # Choice of loss function and Model class
 from graphnet.training.loss_functions import MAELoss
 from graphnet.models import StandardModel
+import torch
 
 # Configuring the components
 
@@ -49,6 +50,11 @@ train_dataset = ParquetDataset(
     truth=["zenith", "azimuth", "energy"],
     graph_definition = graph_definition,
 )
+
+# split up the dataset, https://pytorch.org/docs/stable/data.html#torch.utils.data.random_split
+generator1 = torch.Generator().manual_seed(42)
+train, val, test, _ = random_split(ensemble_dataset, [0.8*0.25, 0.1*0.25, 0.1*0.25, 0.75], generator=generator1)
+print("Seed has been generated")
 
 valid_dataset = ParquetDataset(
     path="/mnt/gs21/scratch/robsonj3/k40sim/parquet/k40_merged_parquet_validate",
