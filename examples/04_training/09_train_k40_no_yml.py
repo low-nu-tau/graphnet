@@ -10,6 +10,9 @@ from graphnet.data.dataloader import DataLoader
 from torch.utils.data import random_split
 from graphnet.data.dataset.dataset import EnsembleDataset
 
+from graphnet.constants import EXAMPLE_OUTPUT_DIR, TEST_DATA_DIR
+
+
 # Choice of loss function and Model class
 from graphnet.training.loss_functions import MAELoss
 from graphnet.models import StandardModel
@@ -27,8 +30,8 @@ class MyCustomLabel(Label):
 
     def __call__(self, graph: Data) -> torch.tensor:
         """Compute label for `graph`."""
-        label = ...  # Your computations here.
-        return label
+        muon_event = ... # If the event comes from file containing GenerateSingleMuons, set to 1, otherwise set to 0
+        return muon_event
     
 graph_definition = KNNGraph(
     detector=PONE(),
@@ -37,37 +40,41 @@ graph_definition = KNNGraph(
 )
 
 signal = ParquetDataset(
-    path="/mnt/research/IceCube/PONE/jp_pone_sim/k40sim/sim/jacob_test_train/truth",
-    pulsemaps="truth", # PulseMap_NoNoise
-    truth_table="truth",
+    path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
+    pulsemaps="PMTResponse_nonoise",
+    truth_table="GenerateSingleMuons_39_pmtsim_pframe_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["zenith", "azimuth", "energy"],
+    truth=["event_no", "pid"],
     graph_definition = graph_definition,
 )
 
 print("Signal length: ", len(signal))
 
 background = ParquetDataset(
-    path="/mnt/research/IceCube/PONE/jp_pone_sim/k40sim/sim/jacob_test_train/K40PulseMap",
+    path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
     pulsemaps="K40PulseMap",
-    truth_table="truth",
+    truth_table="K40PulseMap_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["zenith", "azimuth", "energy"],
+    truth=["event_no", "pid"],
     graph_definition = graph_definition,
 )
 
-print("Background length: ", len(signal))
+print("Background length: ", len(background))
 
 #since background is way larger we want to subsample it
 generator1 = torch.Generator().manual_seed(42)
-subsampled_bkg, _  = random_split(background, [0.25, 0.75], generator=generator1)
+subsampled_bkg, _  = random_split(background, [0.002, 0.998], generator=generator1) # change to .25,.75
 print("Subsampled_background: ", len(subsampled_bkg))
 
+subsampled_signal, _  = random_split(signal, [0.005, 0.995], generator=generator1) # also can get rid of this line
+print("Signal_Subsampled: ", len(subsampled_signal))
+
 # create the total dataset from now equally sized bkg and signal datasets
-ensemble_dataset = EnsembleDataset([signal, subsampled_bkg])
+ensemble_dataset = EnsembleDataset([subsampled_signal, subsampled_bkg]) # change: subsampled_signal to signal
+# ensemble_dataset.add_label(MyCustomLabel())
 
 # and now we can do the split in train, val, test
-train_set, val_set, test_set  = random_split(background, [0.8, 0.1, 0.1], generator=generator1)
+train_set, val_set, test_set  = random_split(ensemble_dataset, [0.8, 0.1, 0.1], generator=generator1)
 
 
 train_dataloader = DataLoader(train_set, batch_size=128, num_workers=10)
@@ -108,25 +115,11 @@ model = StandardModel(
     tasks=[task],
 )
 
-model.fit(ensemble_dataset, max_epochs=10)
-
-""" train_dataset = ParquetDataset(
-    path="/mnt/home/robsonj3/graphnet/data/tests/parquet/jacob_test_train",
-    pulsemaps="K40PulseMap",
-    truth_table="truth",
-    features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["zenith", "azimuth", "energy"],
-    graph_definition = graph_definition,
-)
-
-train_dataloader = DataLoader(train, batch_size=128, num_workers=10) """
-
-# Train model
-# model.fit(train_dataloader=train_dataloader, max_epochs=10)
-
+model.fit(train_dataloader, max_epochs=1)
 print("TRAIN MODEL HAS FINISHED")
+
 """ results = model.predict_as_dataframe(
-    test_dataloader=test_dataloader,
+    dataloader=test_dataloader,
     additional_attributes=model.target_labels + ["event_no"],
 ) """
 
@@ -134,5 +127,5 @@ print("TRAIN MODEL HAS FINISHED")
 """ outdir = "/mnt/home/robsonj3/knn_output"
 os.makedirs(outdir, exist_ok=True)
 results.to_csv(f"{outdir}/results.csv")
-model.save_state_dict(f"{outdir}/state_dict.pth")
-model.save(f"{outdir}/model.pth") """
+model.save_state_dict(f"{outdir}/state_dict.pth") """
+# model.save(f"{outdir}/model.pth")

@@ -43,7 +43,7 @@ def main_icecube86(backend: str) -> None:
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/ic86"
     print(f"gcd glob : {TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*")
     gcd_rescue = glob(
-        "{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*"
+        f"{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02/*GeoCalib*"
     )
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
