@@ -40,7 +40,8 @@ graph_definition = KNNGraph(
 )
 
 signal = ParquetDataset(
-    path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
+    #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
+    path= "/mnt/home/robsonj3/pone_script_test",
     pulsemaps="PMTResponse_nonoise",
     truth_table="GenerateSingleMuons_39_pmtsim_pframe_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
@@ -51,7 +52,8 @@ signal = ParquetDataset(
 print("Signal length: ", len(signal))
 
 background = ParquetDataset(
-    path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
+    #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
+    path="/mnt/home/robsonj3/pone_script_test",
     pulsemaps="K40PulseMap",
     truth_table="K40PulseMap_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],

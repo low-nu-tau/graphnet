@@ -43,7 +43,7 @@ def main_pone(backend: str, qtop: bool) -> None:
 
     ## yes it is shitty i am in a rush - vp 01.06.25
 
-    inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/single_test_file"]
+    inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/test"]
     # inputs = [f"{TEST_DATA_DIR}/i3/pone-GenerateSingleMuons_39_10String_7Cluster/k40"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone"
     print("outdir: ", outdir)
@@ -56,7 +56,7 @@ def main_pone(backend: str, qtop: bool) -> None:
         return
     gcd_rescue = gcd_rescue[0]
     print("gcd type", type(gcd_rescue))
-    pulsemap_name = "K40PulseMap"  #PMTResponse_nonoise
+    pulsemap_name = "K40PulseMap"  #PMTResponse_nonoise, K40PulseMap
     converter = CONVERTER_CLASS[backend](
         extractors=[
             I3FeatureExtractorIceCube86(pulsemap_name),
