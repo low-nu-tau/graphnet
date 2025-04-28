@@ -41,7 +41,7 @@ graph_definition = KNNGraph(
 
 signal = ParquetDataset(
     #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
-    path= "/mnt/home/robsonj3/pone_script_test",
+    path= "/mnt/research/IceCube/PONE/jp_pone_sim/k40sim/pone_script_test",
     pulsemaps="PMTResponse_nonoise",
     truth_table="GenerateSingleMuons_39_pmtsim_pframe_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
@@ -53,7 +53,7 @@ print("Signal length: ", len(signal))
 
 background = ParquetDataset(
     #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
-    path="/mnt/home/robsonj3/pone_script_test",
+    path="/mnt/research/IceCube/PONE/jp_pone_sim/k40sim/pone_script_test",
     pulsemaps="K40PulseMap",
     truth_table="K40PulseMap_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
@@ -65,10 +65,10 @@ print("Background length: ", len(background))
 
 #since background is way larger we want to subsample it
 generator1 = torch.Generator().manual_seed(42)
-subsampled_bkg, _  = random_split(background, [0.002, 0.998], generator=generator1) # change to .25,.75
+subsampled_bkg, _  = random_split(background, [0.003, 0.997], generator=generator1) # change to .25,.75
 print("Subsampled_background: ", len(subsampled_bkg))
 
-subsampled_signal, _  = random_split(signal, [0.005, 0.995], generator=generator1) # also can get rid of this line
+subsampled_signal, _  = random_split(signal, [0.006, 0.994], generator=generator1) # also can get rid of this line
 print("Signal_Subsampled: ", len(subsampled_signal))
 
 # create the total dataset from now equally sized bkg and signal datasets
