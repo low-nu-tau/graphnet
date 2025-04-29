@@ -20,6 +20,14 @@ from graphnet.models import StandardModel
 import torch
 from torch_geometric.data import Data
 from graphnet.training.labels import Label
+from pytorch_lightning.loggers import WandbLogger
+from graphnet.utilities.logging import Logger
+from pytorch_lightning.utilities import rank_zero_only
+import os
+import random
+import wandb
+
+logger = Logger()
 
 class MyCustomLabel(Label):
     """Class for producing my label."""
@@ -117,13 +125,28 @@ model = StandardModel(
     tasks=[task],
 )
 
-model.fit(train_dataloader, max_epochs=1)
+wandb_run = wandb.init(
+    # Set the wandb entity where your project will be logged (generally your team name).
+    entity="robsonj3-michigan-state-university",
+    # Set the wandb project where this run will be logged.
+    project="test",
+    # Track hyperparameters and run metadata.
+    config={
+        "learning_rate": 0.02,
+        "architecture": "KNN",
+        "dataset": "signal and background",
+        "epochs": 1,
+    },
+    # save_dir= "/mnt/ffs24/home/robsonj3/wandb",
+)
+
+model.fit(train_dataloader, max_epochs=1)  # should need to add logger here
 print("TRAIN MODEL HAS FINISHED")
 
-""" results = model.predict_as_dataframe(
+results = model.predict_as_dataframe(
     dataloader=test_dataloader,
     additional_attributes=model.target_labels + ["event_no"],
-) """
+)
 
 # Save predictions and model to file
 """ outdir = "/mnt/home/robsonj3/knn_output"
