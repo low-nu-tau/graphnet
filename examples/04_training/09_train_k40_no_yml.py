@@ -21,9 +21,12 @@ import torch
 from torch_geometric.data import Data
 from graphnet.training.labels import Label
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks import Callback
 from graphnet.utilities.logging import Logger
+from pytorch_lightning import Trainer
 from pytorch_lightning.utilities import rank_zero_only
 import os
+import time
 import random
 import wandb
 
@@ -40,12 +43,29 @@ class MyCustomLabel(Label):
         """Compute label for `graph`."""
         muon_event = ... # If the event comes from file containing GenerateSingleMuons, set to 1, otherwise set to 0
         return muon_event
-    
+
+
+class WandbMetricsLogger(Callback):
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+        self.batch_start_time = time.time()
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        batch_time = time.time() - self.batch_start_time
+        metrics = trainer.callback_metrics
+        wandb.log({
+            "batch_idx": batch_idx,
+            "train_loss_batch": metrics.get("train_loss", None),
+            "batch_time": batch_time,  # Log batch processing time
+        })
+
+
 graph_definition = KNNGraph(
     detector=PONE(),
     node_definition=NodesAsPulses(),
     nb_nearest_neighbours=8,
+    input_feature_names=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],  # Define features explicitly
 )
+
 
 signal = ParquetDataset(
     #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
@@ -53,11 +73,9 @@ signal = ParquetDataset(
     pulsemaps="PMTResponse_nonoise",
     truth_table="GenerateSingleMuons_39_pmtsim_pframe_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["event_no", "pid"],
+    truth=["pid"],
     graph_definition = graph_definition,
 )
-
-print("Signal length: ", len(signal))
 
 background = ParquetDataset(
     #path= f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/pone",
@@ -65,18 +83,20 @@ background = ParquetDataset(
     pulsemaps="K40PulseMap",
     truth_table="K40PulseMap_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["event_no", "pid"],
+    truth=["pid"],
     graph_definition = graph_definition,
 )
 
-print("Background length: ", len(background))
+print("Signal length: ", len(signal))
+print("Signal features: ", signal._features)
+print("Graph definition input features: ", graph_definition._input_feature_names)
 
 #since background is way larger we want to subsample it
 generator1 = torch.Generator().manual_seed(42)
-subsampled_bkg, _  = random_split(background, [0.003, 0.997], generator=generator1) # change to .25,.75
+subsampled_bkg, _ = random_split(background, [10, len(background) - 10], generator=generator1)
 print("Subsampled_background: ", len(subsampled_bkg))
 
-subsampled_signal, _  = random_split(signal, [0.006, 0.994], generator=generator1) # also can get rid of this line
+subsampled_signal, _ = random_split(signal, [10, len(signal) - 10], generator=generator1)
 print("Signal_Subsampled: ", len(subsampled_signal))
 
 # create the total dataset from now equally sized bkg and signal datasets
@@ -87,9 +107,9 @@ ensemble_dataset = EnsembleDataset([subsampled_signal, subsampled_bkg]) # change
 train_set, val_set, test_set  = random_split(ensemble_dataset, [0.8, 0.1, 0.1], generator=generator1)
 
 
-train_dataloader = DataLoader(train_set, batch_size=128, num_workers=10)
-validate_dataloader = DataLoader(val_set, batch_size=128, num_workers=10)
-test_dataloader = DataLoader(test_set, batch_size=128, num_workers=10)
+train_dataloader = DataLoader(train_set, batch_size=1, num_workers=1)
+validate_dataloader = DataLoader(val_set, batch_size=1, num_workers=1)
+test_dataloader = DataLoader(test_set, batch_size=1, num_workers=1)
 
 #check the lengths of the loaders
 print(len(train_dataloader))
@@ -118,36 +138,47 @@ task = MulticlassClassificationTask(
     loss_function=MAELoss(),
 )
 
-# Construct the Model
+# Construct the Model with GPU settings passed via trainer_kwargs
 model = StandardModel(
     graph_definition=graph_definition,
     backbone=backbone,
     tasks=[task],
 )
 
+# Initialize wandb
 wandb_run = wandb.init(
-    # Set the wandb entity where your project will be logged (generally your team name).
-    entity="robsonj3-michigan-state-university",
-    # Set the wandb project where this run will be logged.
-    project="test",
-    # Track hyperparameters and run metadata.
+    project="array-performance-1",
     config={
         "learning_rate": 0.02,
-        "architecture": "KNN",
-        "dataset": "signal and background",
         "epochs": 1,
     },
-    # save_dir= "/mnt/ffs24/home/robsonj3/wandb",
 )
 
-model.fit(train_dataloader, max_epochs=1)  # should need to add logger here
+# Add the WandbMetricsLogger callback
+wandb_logger_callback = WandbMetricsLogger()
+
+for i in range(5):
+    print(train_set[i])  # Check if the dataset returns valid samples
+
+
+batch = next(iter(train_dataloader))
+preds = model(batch)  # Check if this runs without errors
+print(preds)
+
+# Train the model with the callback
+model.fit(
+    train_dataloader,
+    max_epochs=wandb_run.config["epochs"],
+    callbacks=[wandb_logger_callback],  # Add the callback here
+)
+
 print("TRAIN MODEL HAS FINISHED")
 
+# Predict and save results
 results = model.predict_as_dataframe(
     dataloader=test_dataloader,
     additional_attributes=model.target_labels + ["event_no"],
 )
-
 # Save predictions and model to file
 """ outdir = "/mnt/home/robsonj3/knn_output"
 os.makedirs(outdir, exist_ok=True)
