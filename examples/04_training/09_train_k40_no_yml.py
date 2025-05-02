@@ -6,6 +6,7 @@ from graphnet.models.gnn.dynedge import DynEdge
 from graphnet.models.task.classification import MulticlassClassificationTask
 from graphnet.data.dataloader import DataLoader
 from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset
+from graphnet.data import GraphNeTDataModule
 from graphnet.data.dataloader import DataLoader
 from torch.utils.data import random_split
 from graphnet.data.dataset.dataset import EnsembleDataset
@@ -14,7 +15,7 @@ from graphnet.constants import EXAMPLE_OUTPUT_DIR, TEST_DATA_DIR
 
 
 # Choice of loss function and Model class
-from graphnet.training.loss_functions import MAELoss
+from graphnet.training.loss_functions import MAELoss, CrossEntropyLoss
 from graphnet.models import StandardModel
 
 import torch
@@ -25,25 +26,31 @@ from pytorch_lightning.callbacks import Callback
 from graphnet.utilities.logging import Logger
 from pytorch_lightning import Trainer
 from pytorch_lightning.utilities import rank_zero_only
-import os
 import time
-import random
 import wandb
+import os
+import pyarrow.parquet as pq
+
+"""
+Multiclassifer trained to determine if event is neutrino or K40 based on the energy of event.
+
+"""
 
 logger = Logger()
 
-class MyCustomLabel(Label):
-    """Class for producing my label."""
+class SignalBackgroundLabel(Label):
+    """Class for producing signal/background label based on PID."""
     def __init__(self):
-        """Construct `MyCustomLabel`."""
-        # Base class constructor
-        super().__init__(key="my_custom_label")
+        """Construct `SignalBackgroundLabel`."""
+        super().__init__(key="signal_background_label")
 
     def __call__(self, graph: Data) -> torch.tensor:
         """Compute label for `graph`."""
-        muon_event = ... # If the event comes from file containing GenerateSingleMuons, set to 1, otherwise set to 0
-        return muon_event
-
+        if not hasattr(graph, "pid"):
+            raise ValueError("The graph does not contain the 'pid' attribute required for labeling.")
+        pid = graph.pid.item()  # Access the PID field
+        label = 1 if pid in [14, -14] else 0  # 1 for signal, 0 for background
+        return torch.tensor(label, dtype=torch.float32)
 
 class WandbMetricsLogger(Callback):
     def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
@@ -73,7 +80,7 @@ signal = ParquetDataset(
     pulsemaps="PMTResponse_nonoise",
     truth_table="GenerateSingleMuons_39_pmtsim_pframe_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["pid"],
+    truth=["energy"],
     graph_definition = graph_definition,
 )
 
@@ -83,13 +90,46 @@ background = ParquetDataset(
     pulsemaps="K40PulseMap",
     truth_table="K40PulseMap_truth",
     features=["dom_x", "dom_y", "dom_z", "dom_time", "charge"],
-    truth=["pid"],
+    truth=["energy"],
     graph_definition = graph_definition,
 )
 
-print("Signal length: ", len(signal))
-print("Signal features: ", signal._features)
-print("Graph definition input features: ", graph_definition._input_feature_names)
+# Inspect the input Parquet files and subdirectories
+def inspect_parquet_files(path):
+    print(f"Inspecting Parquet files and subdirectories in: {path}")
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if file.endswith(".parquet"):
+                file_path = os.path.join(root, file)
+                label = "Signal (Muons)" if "GenerateSingleMuons" in file_path or "PMTResponse_nonoise" in file_path else "Background (K40)"
+                print(f"File: {file_path} ({label})")
+                try:
+                    table = pq.read_table(file_path)
+                    print(f"  Columns: {table.column_names}")
+                    print(f"  Number of rows: {table.num_rows}")
+                    # Print the first few rows of each column
+                    for column in table.column_names:
+                        print(f"  First few rows of column '{column}': {table[column].to_pylist()[:5]}")
+                except Exception as e:
+                    print(f"  Failed to read file: {e}")
+
+# inspect_parquet_files("/mnt/research/IceCube/PONE/jp_pone_sim/k40sim/pone_script_test")
+# signal.add_label(SignalBackgroundLabel())
+# background.add_label(SignalBackgroundLabel())
+
+# graph_sig = signal[0]
+# graph_bkg = background[0]
+# graph_sig["signal_background_label"]
+# graph_bkg["signal_background_label"]
+# print("Signal graph: ", graph_sig)
+# print("Background graph: ", graph_bkg)
+
+# Read out the features and truth values in the signal and background datasets
+print("Available truth table columns:", signal._truth_table)
+print("Signal Dataset Features: ", signal._features)
+print("Signal Dataset Truth: ", signal._truth)
+print("Background Dataset Features: ", background._features)
+print("Background Dataset Truth: ", background._truth)
 
 #since background is way larger we want to subsample it
 generator1 = torch.Generator().manual_seed(42)
@@ -101,25 +141,18 @@ print("Signal_Subsampled: ", len(subsampled_signal))
 
 # create the total dataset from now equally sized bkg and signal datasets
 ensemble_dataset = EnsembleDataset([subsampled_signal, subsampled_bkg]) # change: subsampled_signal to signal
-# ensemble_dataset.add_label(MyCustomLabel())
+
 
 # and now we can do the split in train, val, test
 train_set, val_set, test_set  = random_split(ensemble_dataset, [0.8, 0.1, 0.1], generator=generator1)
+
+for i in range(6):
+    print(train_set[i])  # Check if the dataset returns valid samples
 
 
 train_dataloader = DataLoader(train_set, batch_size=1, num_workers=1)
 validate_dataloader = DataLoader(val_set, batch_size=1, num_workers=1)
 test_dataloader = DataLoader(test_set, batch_size=1, num_workers=1)
-
-#check the lengths of the loaders
-print(len(train_dataloader))
-print(len(validate_dataloader))
-print(len(test_dataloader))
-
-#Check batch size
-print(train_dataloader.batch_size)
-print(validate_dataloader.batch_size)
-print(test_dataloader.batch_size)
 
 # Configuring the components
 
@@ -134,8 +167,9 @@ backbone = DynEdge(
 task = MulticlassClassificationTask(
     hidden_size=backbone.nb_outputs,
     nb_outputs=backbone.nb_outputs,
-    target_labels="multiclass_classification",
-    loss_function=MAELoss(),
+    target_labels="signal_background_label",
+    loss_function=CrossEntropyLoss(
+        options=[2, torch.int64]),
 )
 
 # Construct the Model with GPU settings passed via trainer_kwargs
@@ -157,10 +191,12 @@ wandb_run = wandb.init(
 # Add the WandbMetricsLogger callback
 wandb_logger_callback = WandbMetricsLogger()
 
-for i in range(5):
+for i in range(6):
     print(train_set[i])  # Check if the dataset returns valid samples
+    print(train_set[i].keys())  # Check the keys of the dataset
+    print(train_set[i].x)  # Check the features of the dataset
 
-
+# This is where you break!
 batch = next(iter(train_dataloader))
 preds = model(batch)  # Check if this runs without errors
 print(preds)

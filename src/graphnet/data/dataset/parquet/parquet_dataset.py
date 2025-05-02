@@ -118,7 +118,6 @@ class ParquetDataset(Dataset):
             graph_definition=graph_definition,
             labels=labels,
         )
-
         # mypy..
         assert isinstance(self._path, str)
         self._path: str = self._path

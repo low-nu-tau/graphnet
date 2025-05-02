@@ -93,10 +93,8 @@ class StandardModel(EasySyntax):
         ), "Please reduce loss for each task separately"
         return torch.sum(torch.stack(losses))
 
-    def forward(
-        self, data: Union[Data, List[Data]]
-    ) -> List[Union[Tensor, Data]]:
-        """Forward pass, chaining model components."""
+    def forward(self, data: Union[Data, List[Data]]) -> List[Union[Tensor, Data]]:
+        print("Forward pass started")
         if isinstance(data, Data):
             data = [data]
         x_list = []
@@ -104,8 +102,10 @@ class StandardModel(EasySyntax):
             x = self.backbone(d)
             x_list.append(x)
         x = torch.cat(x_list, dim=0)
+        print("Backbone output:", x.shape)
 
         preds = [task(x) for task in self._tasks]
+        print("Task output:", preds)
         return preds
 
     def shared_step(self, batch: List[Data], batch_idx: int) -> Tensor:
