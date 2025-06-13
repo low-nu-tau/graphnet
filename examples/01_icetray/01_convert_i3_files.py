@@ -38,7 +38,7 @@ def main_icecube86(backend: str) -> None:
     """Convert IceCube-86 I3 files to intermediate `backend` format."""
     # Check(s)
     assert backend in CONVERTER_CLASS
-
+    print(TEST_DATA_DIR)
     inputs = [f"{TEST_DATA_DIR}/i3/oscNext_genie_level7_v02"]
     outdir = f"{EXAMPLE_OUTPUT_DIR}/convert_i3_files/ic86"
     gcd_rescue = glob(

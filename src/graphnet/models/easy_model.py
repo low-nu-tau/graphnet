@@ -96,7 +96,8 @@ class EasySyntax(Model):
         else:
             accelerator = "cpu"
             devices = 1
-
+        accelerator = "gpu"
+        devices = 1
         trainer = Trainer(
             accelerator=accelerator,
             devices=devices,

@@ -448,6 +448,8 @@ class VonMisesFisher3DLoss(VonMisesFisherLoss):
         # Check(s)
         assert prediction.dim() == 2 and prediction.size()[1] == 4
         assert target.dim() == 2
+        print(f"Prediction shape: {prediction.shape}")
+        print(f"Target shape: {target.shape}")
         assert prediction.size()[0] == target.size()[0]
 
         kappa = prediction[:, 3]

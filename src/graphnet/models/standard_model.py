@@ -136,6 +136,7 @@ class StandardModel(EasySyntax):
         Applies the forward pass and the following loss calculation, shared
         between the training and validation step.
         """
+        
         preds = self(batch)
         loss = self.compute_loss(preds, batch)
         return loss

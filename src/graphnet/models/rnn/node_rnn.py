@@ -136,6 +136,7 @@ class Node_RNN(GNN):
         data.batch = batch
         data = self.clean_up_data_object(data)
         # Recompute adjacency
+        print("x shape right before indexing:", x.shape)
         data.edge_index = knn_graph(
             x=x[:, self._features_subset],
             k=self._nb_neighbors,

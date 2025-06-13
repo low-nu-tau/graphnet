@@ -29,6 +29,9 @@ class IceCube86(Detector):
             "rde": self._rde,
             "pmt_area": self._pmt_area,
             "hlc": self._identity,
+            "string": self._string, #Rishi
+            "pmt_number": self._pmt_number,
+            "dom_number": self._dom_number,
         }
         return feature_map
 
@@ -46,6 +49,15 @@ class IceCube86(Detector):
 
     def _pmt_area(self, x: torch.tensor) -> torch.tensor:
         return x / 0.05
+#Rishi
+    def _string(self, x: torch.tensor) -> torch.tensor:
+        return (x - 50.0) / 50.0
+
+    def _pmt_number(self, x: torch.tensor) -> torch.tensor:
+        return x / 20.0
+
+    def _dom_number(self, x: torch.tensor) -> torch.tensor:
+        return (x - 60.0) / 60.0
 
 
 class IceCubeKaggle(Detector):

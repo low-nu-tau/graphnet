@@ -126,9 +126,10 @@ class RNN_TITO(GNN):
             dropout=self._rnn_dropout,
             embedding_dim=self._embedding_dim,
         )
-
+        rnn_output_dim = self._rnn_hidden_size + (nb_inputs - 1)
         self._dynedge_tito = DynEdgeTITO(
-            nb_inputs=self._rnn_hidden_size + 5,
+            # nb_inputs=self._rnn_hidden_size + 5,
+            nb_inputs=rnn_output_dim,
             dyntrans_layer_sizes=self._dyntrans_layer_sizes,
             features_subset=self._features_subset,
             global_pooling_schemes=self._global_pooling_schemes,
@@ -143,6 +144,7 @@ class RNN_TITO(GNN):
     def forward(self, data: Data) -> torch.Tensor:
         """Apply learnable forward pass of the RNN and tito model."""
         data = self._rnn(data)
+        print("RNN output shape:", data.x.shape)
         readout = self._dynedge_tito(data)
 
         return readout
